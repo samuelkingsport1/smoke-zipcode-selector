@@ -18,10 +18,8 @@ const HeatMode = () => {
             // Fetch Excessive Heat Warning and Heat Advisory
             // API allows comma separated events? No, usually one by one or all.
             // We can fetch all and filter client side for better coverage or make two requests.
-            // Let's try fetching all active alerts and filtering, or just use "Excessive Heat Warning" as the primary trigger.
-            // Brief says "Heat Index > 100".
-
-            const url = 'https://api.weather.gov/alerts?event=Excessive%20Heat%20Warning,Heat%20Advisory&limit=50';
+            // Switch to /alerts/active for geometry
+            const url = 'https://api.weather.gov/alerts/active?event=Excessive%20Heat%20Warning,Heat%20Advisory&limit=50';
             console.log(`[HeatMode] Fetching: ${url}`);
 
             const response = await fetch(url);
@@ -31,8 +29,11 @@ const HeatMode = () => {
             console.log("[HeatMode] Data received:", data);
 
             if (data.features && data.features.length > 0) {
+                const withGeometry = data.features.filter(f => f.geometry !== null).length;
+                console.log(`[HeatMode] Features with geometry: ${withGeometry} / ${data.features.length}`);
+
                 setAlerts(data);
-                setStatus(`Loaded ${data.features.length} Heat Alerts.`);
+                setStatus(`Loaded ${data.features.length} Heat Alerts (${withGeometry} visible).`);
             } else {
                 setStatus("No Heat Alerts found.");
                 console.warn("[HeatMode] features array is empty.");

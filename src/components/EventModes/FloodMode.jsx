@@ -15,8 +15,8 @@ const FloodMode = () => {
         setLoading(true);
         setStatus("Fetching NWS Flood & Hurricane Warnings...");
         try {
-            // Fetch Flash Flood Warning and Hurricane Warning
-            const url = 'https://api.weather.gov/alerts?event=Flash%20Flood%20Warning,Hurricane%20Warning&limit=50';
+            // Fetch Flash Flood Warning and Hurricane Warning via /alerts/active
+            const url = 'https://api.weather.gov/alerts/active?event=Flash%20Flood%20Warning,Hurricane%20Warning&limit=50';
             console.log(`[FloodMode] Fetching: ${url}`);
 
             const response = await fetch(url);
@@ -26,8 +26,11 @@ const FloodMode = () => {
             console.log("[FloodMode] Data received:", data);
 
             if (data.features && data.features.length > 0) {
+                const withGeometry = data.features.filter(f => f.geometry !== null).length;
+                console.log(`[FloodMode] Features with geometry: ${withGeometry} / ${data.features.length}`);
+
                 setAlerts(data);
-                setStatus(`Loaded ${data.features.length} Flood/Hurricane Alerts.`);
+                setStatus(`Loaded ${data.features.length} Flood/Hurricane Alerts (${withGeometry} visible).`);
             } else {
                 setStatus("No Flood/Hurricane Alerts found.");
                 console.warn("[FloodMode] features array is empty.");

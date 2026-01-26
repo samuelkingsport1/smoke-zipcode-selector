@@ -20,8 +20,8 @@ const WinterMode = () => {
             // Fetching both active and recent could be tricky. 
             // /alerts/active only shows active. 
             // /alerts shows history but might be heavy.
-            // Let's try /alerts with a limit and status=actual
-            const url = 'https://api.weather.gov/alerts?event=Winter%20Storm%20Warning,Winter%20Weather%20Advisory&limit=50';
+            // Let's try /alerts/active which is more likely to have geometry for current warnings
+            const url = 'https://api.weather.gov/alerts/active?event=Winter%20Storm%20Warning,Winter%20Weather%20Advisory&limit=50';
             console.log(`[WinterMode] Fetching: ${url}`);
 
             const response = await fetch(url);
@@ -31,8 +31,11 @@ const WinterMode = () => {
             console.log("[WinterMode] Data received:", data);
 
             if (data.features && data.features.length > 0) {
+                const withGeometry = data.features.filter(f => f.geometry !== null).length;
+                console.log(`[WinterMode] Features with geometry: ${withGeometry} / ${data.features.length}`);
+
                 setAlerts(data);
-                setStatus(`Loaded ${data.features.length} Winter Storm Warnings.`);
+                setStatus(`Loaded ${data.features.length} Winter Alerts (${withGeometry} visible).`);
             } else {
                 setStatus("No Winter Storm Warnings found.");
                 console.warn("[WinterMode] features array is empty.");
