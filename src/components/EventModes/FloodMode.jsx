@@ -4,6 +4,7 @@ import MapComponent from '../MapContainer';
 import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
 import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
+import { NWSService } from '../../services/nwsService';
 
 const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
@@ -18,57 +19,18 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
     const fetchAlerts = async () => {
         setLoading(true);
         setStatus(date ? `Searching Archive for ${date}...` : "Fetching NWS Flood Warnings...");
+
         try {
-            let url;
-            if (date) {
-                const startDate = new Date(date);
-                startDate.setHours(0, 0, 0, 0);
-                const endDate = new Date(date);
-                endDate.setHours(23, 59, 59, 999);
+            const events = "Flood Warning,Flash Flood Warning,Coastal Flood Warning";
+            const data = await NWSService.fetchAlerts(date, events);
 
-                const params = new URLSearchParams({
-                    start: startDate.toISOString(),
-                    end: endDate.toISOString(),
-                    event: "Flood Warning,Flash Flood Warning,Coastal Flood Warning",
-                    limit: 500
-                });
-                url = `https://api.weather.gov/alerts?${params.toString()}`;
-            } else {
-                url = 'https://api.weather.gov/alerts/active';
-            }
+            console.log(`[FloodMode] Loaded ${data.features.length} flood alerts.`);
 
-            console.log(`[FloodMode] Fetching: ${url}`);
-
-            const response = await fetch(url, {
-                headers: {
-                    'User-Agent': '(myweatherapp.com, contact@myweatherapp.com)',
-                    'Accept': 'application/geo+json'
-                }
-            });
-            const rawData = await response.json();
-
-            if (!rawData.features && !rawData.title) {
-                setStatus(`Error: NWS API returned ${rawData.title || "unexpected format"}`);
-                return;
-            }
-
-            let features = rawData.features || [];
-
-            const targetEvents = ["Flood Warning", "Flash Flood Warning", "Coastal Flood Warning"];
-
-            // Filter: Removed strict US State check
-            features = features.filter(f => targetEvents.includes(f.properties.event));
-
-            const data = { type: "FeatureCollection", features: features };
-
-            console.log(`[FloodMode] Loaded ${features.length} flood alerts.`);
-
-            if (features.length > 0) {
-                const withGeometry = features.filter(f => f.geometry !== null).length;
+            if (data.features.length > 0) {
                 setAlerts(data);
                 setStatus(date
-                    ? `Found ${features.length} Historical Alerts for ${date}.`
-                    : `Active: ${features.length} Flood Alerts.`
+                    ? `Found ${data.features.length} Historical Alerts for ${date}.`
+                    : `Active: ${data.features.length} Flood Alerts.`
                 );
             } else {
                 setAlerts({ type: "FeatureCollection", features: [] });
@@ -76,7 +38,7 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);
-            setStatus("Error fetching NWS data.");
+            setStatus(`Error: ${err.message}`);
             setAlerts(null);
         } finally {
             setLoading(false);
