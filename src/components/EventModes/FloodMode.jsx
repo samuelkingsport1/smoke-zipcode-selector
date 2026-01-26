@@ -15,14 +15,20 @@ const FloodMode = () => {
         setLoading(true);
         setStatus("Fetching NWS Flood & Hurricane Warnings...");
         try {
-            // Fetch Flash Flood Warning and Hurricane Warning via /alerts/active with client-side filter
-            const url = 'https://api.weather.gov/alerts/active?status=actual&limit=500';
+            // Fetch Flash Flood Warning and Hurricane Warning via /alerts/active, remove invalid 'status' param
+            const url = 'https://api.weather.gov/alerts/active?limit=500';
             console.log(`[FloodMode] Fetching: ${url}`);
 
             const response = await fetch(url);
             console.log(`[FloodMode] Response Status: ${response.status}`);
 
             const rawData = await response.json();
+
+            if (!rawData.features) {
+                console.error("[FloodMode] Invalid response (no features):", rawData);
+                setStatus(`Error: NWS API returned ${rawData.title || "unexpected format"}`);
+                return;
+            }
 
             // Filter client-side
             const targetEvents = ["Flash Flood Warning", "Hurricane Warning"];

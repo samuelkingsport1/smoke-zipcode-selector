@@ -18,14 +18,20 @@ const HeatMode = () => {
             // Fetch Excessive Heat Warning and Heat Advisory
             // API allows comma separated events? No, usually one by one or all.
             // We can fetch all and filter client side for better coverage or make two requests.
-            // Switch to /alerts/active for geometry, client-side filtering
-            const url = 'https://api.weather.gov/alerts/active?status=actual&limit=500';
+            // Switch to /alerts/active, removing invalid 'status' param
+            const url = 'https://api.weather.gov/alerts/active?limit=500';
             console.log(`[HeatMode] Fetching: ${url}`);
 
             const response = await fetch(url);
             console.log(`[HeatMode] Response Status: ${response.status}`);
 
             const rawData = await response.json();
+
+            if (!rawData.features) {
+                console.error("[HeatMode] Invalid response (no features):", rawData);
+                setStatus(`Error: NWS API returned ${rawData.title || "unexpected format"}`);
+                return;
+            }
 
             // Filter client-side
             const targetEvents = ["Excessive Heat Warning", "Heat Advisory"];

@@ -20,14 +20,21 @@ const WinterMode = () => {
             // Fetching both active and recent could be tricky. 
             // /alerts/active only shows active. 
             // /alerts shows history but might be heavy.
-            // Fetch all active alerts (limit 500) and filter client-side to avoid 400 Bad Request with complex query params
-            const url = 'https://api.weather.gov/alerts/active?status=actual&limit=500';
+            // Fetch all active alerts (limit 500) and filter client-side.
+            // NOTE: 'status' param is NOT valid for /alerts/active, removing it.
+            const url = 'https://api.weather.gov/alerts/active?limit=500';
             console.log(`[WinterMode] Fetching: ${url}`);
 
             const response = await fetch(url);
             console.log(`[WinterMode] Response Status: ${response.status}`);
 
             const rawData = await response.json();
+
+            if (!rawData.features) {
+                console.error("[WinterMode] Invalid response (no features):", rawData);
+                setStatus(`Error: NWS API returned ${rawData.title || "unexpected format"}`);
+                return;
+            }
 
             // Filter client-side
             const targetEvents = ["Winter Storm Warning", "Winter Weather Advisory"];
