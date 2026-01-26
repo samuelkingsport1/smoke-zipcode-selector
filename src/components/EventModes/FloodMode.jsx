@@ -3,22 +3,40 @@ import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
+import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
 
-const FloodMode = () => {
+const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [status, setStatus] = useState("Initializing Flood/Hurricane Mode...");
+    const [status, setStatus] = useState("Initializing Flood Mode...");
+    const [date, setDate] = useState(""); // Empty = Live
 
     useEffect(() => {
         fetchAlerts();
-    }, []);
+    }, [date]);
 
     const fetchAlerts = async () => {
         setLoading(true);
-        setStatus("Fetching NWS Flood & Hurricane Warnings...");
+        setStatus(date ? `Searching Archive for ${date}...` : "Fetching NWS Flood Warnings...");
         try {
-            // Fetch all active alerts without parameters to avoid 400 Bad Request
-            const url = 'https://api.weather.gov/alerts/active';
+            let url;
+            if (date) {
+                const startDate = new Date(date);
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date(date);
+                endDate.setHours(23, 59, 59, 999);
+
+                const params = new URLSearchParams({
+                    start: startDate.toISOString(),
+                    end: endDate.toISOString(),
+                    event: "Flood Warning,Flash Flood Warning,Coastal Flood Warning",
+                    limit: 500
+                });
+                url = `https://api.weather.gov/alerts?${params.toString()}`;
+            } else {
+                url = 'https://api.weather.gov/alerts/active';
+            }
+
             console.log(`[FloodMode] Fetching: ${url}`);
 
             const response = await fetch(url, {
@@ -27,75 +45,53 @@ const FloodMode = () => {
                     'Accept': 'application/geo+json'
                 }
             });
-            console.log(`[FloodMode] Response Status: ${response.status}`);
-
             const rawData = await response.json();
 
-            if (!rawData.features) {
-                console.error("[FloodMode] Invalid response (no features):", rawData);
+            if (!rawData.features && !rawData.title) {
                 setStatus(`Error: NWS API returned ${rawData.title || "unexpected format"}`);
                 return;
             }
 
-            // Filter client-side
-            const targetEvents = ["Flash Flood Warning", "Hurricane Warning"];
-            const features = rawData.features.filter(f => targetEvents.includes(f.properties.event));
+            let features = rawData.features || [];
 
-            const data = { ...rawData, features: features };
+            const targetEvents = ["Flood Warning", "Flash Flood Warning", "Coastal Flood Warning"];
 
-            console.log(`[FloodMode] Filtered ${rawData.features.length} total alerts to ${features.length} Flood/Hurricane events.`);
+            // Filter: Event Type + US State strict check
+            features = features.filter(f => {
+                if (!targetEvents.includes(f.properties.event)) return false;
+                const areaDesc = f.properties.areaDesc || "";
+                return STATE_ABBREVIATIONS.some(abbr => areaDesc.includes(`, ${abbr}`) || areaDesc.includes(` ${abbr} `));
+            });
+
+            const data = { type: "FeatureCollection", features: features };
+
+            console.log(`[FloodMode] Loaded ${features.length} flood alerts.`);
 
             if (features.length > 0) {
                 const withGeometry = features.filter(f => f.geometry !== null).length;
-                console.log(`[FloodMode] Features with geometry: ${withGeometry} / ${features.length}`);
-
                 setAlerts(data);
-                setStatus(`Loaded ${features.length} Flood/Hurricane Alerts (${withGeometry} visible).`);
+                setStatus(date
+                    ? `Found ${features.length} Historical Alerts for ${date}.`
+                    : `Active: ${features.length} Flood Alerts.`
+                );
             } else {
-                setStatus("No active Flood/Hurricane Alerts found.");
-                console.warn("[FloodMode] 0 matched events found.");
+                setAlerts({ type: "FeatureCollection", features: [] });
+                setStatus(date ? `No Flood alerts found for ${date}.` : "No active Flood Warnings.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);
             setStatus("Error fetching NWS data.");
+            setAlerts(null);
         } finally {
             setLoading(false);
         }
     };
 
-    const onEachFeature = (feature, layer) => {
-        const props = feature.properties;
-        const isHurricane = props.event === "Hurricane Warning";
-
-        layer.bindPopup(`
-      <strong>${props.event}</strong><br/>
-      Expires: ${new Date(props.expires).toLocaleString()}<br/>
-      Severity: ${props.severity}<br/>
-      Area: ${props.areaDesc}
-    `);
-
-        layer.setStyle({
-            fillColor: isHurricane ? '#800080' : '#0000FF', // Purple (Hurricane) vs Blue (Flood)
-            weight: 2,
-            opacity: 1,
-            color: 'white',
-            fillOpacity: 0.5
-        });
-    };
-
-    const getProducts = (eventType) => {
-        if (eventType === "Hurricane Warning") {
-            return [
-                { category: "Restoration", skus: ["Dehumidifier", "Air Mover", "Mold Inhibitor"] },
-                { category: "Power", skus: ["Gas Generator", "Extension Cord", "Surge Protector"] }
-            ];
-        } else {
-            // Flood
-            return [
-                { category: "Restoration", skus: ["Dehumidifier", "Air Mover", "Sump Pump"] },
-                { category: "Cleanup", skus: ["Wet/Dry Vac", "Disinfectant"] }
-            ];
-        }
+    const getProducts = () => {
+        return [
+            { category: "Cleanup", skus: ["Sump Pump", "Wet/Dry Vac", "Dehumidifier"] },
+            { category: "Protection", skus: ["Sandbags", "Tarps", "Generators"] }
+        ];
     };
 
     const handleExport = () => {
@@ -106,12 +102,12 @@ const FloodMode = () => {
 
         const targets = alerts.features.map(f => ({
             event_id: f.properties.id,
-            event_type: f.properties.event.toUpperCase().replace(/\s/g, '_'),
+            event_type: "FLOOD",
             timestamp: f.properties.sent,
             expires: f.properties.expires,
             area: f.properties.areaDesc,
-            summary: f.properties.headline,
-            suggested_products: getProducts(f.properties.event).flatMap(g => g.skus).join("; ")
+            alert_type: f.properties.event,
+            suggested_products: getProducts().map(p => p.category).join("; ")
         }));
 
         if (targets.length === 0) {
@@ -121,7 +117,7 @@ const FloodMode = () => {
 
         const exportObj = {
             generated_at: new Date().toISOString(),
-            event_type: "FLOOD_HURRICANE",
+            event_type: "FLOOD",
             targets: targets
         };
 
@@ -129,7 +125,7 @@ const FloodMode = () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', 'flood_hurricane_targets.json');
+        link.setAttribute('download', 'flood_targets.json');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -138,37 +134,61 @@ const FloodMode = () => {
     };
 
     return (
-        <div className="dashboard-layout">
-            <div className="sidebar-section">
-                <AlertList
-                    alerts={alerts ? alerts.features : []}
-                    title="Flood & Hurricane"
-                    onExport={handleExport}
-                />
-                <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
-                    {status}
-                </div>
-            </div>
+        <DashboardLayout
+            sidebarContent={
+                <>
+                    <div className="sidebar-header" style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                                <strong>Date Range</strong>
+                            </label>
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ddd'
+                                }}
+                            />
+                            {!date && <small style={{ color: '#00cc00', fontSize: '10px' }}>● Live Data</small>}
+                            {date && <button onClick={() => setDate("")} style={{ marginTop: '5px', fontSize: '10px', cursor: 'pointer', background: 'none', border: 'none', color: '#0066cc', textDecoration: 'underline' }}>Return to Live</button>}
+                        </div>
+                    </div>
 
-            <div className="map-section">
-                <div className="map-interaction-container">
-                    <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
-                        Refresh Data
-                    </button>
-                </div>
-
-                <MapComponent>
-                    <WMSTileLayer
-                        url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
-                        layers="0"
-                        format="image/png"
-                        transparent={true}
-                        opacity={0.6}
-                        layerDefs={'{"0":"prod_type=\'Flash Flood Warning\' OR prod_type=\'Hurricane Warning\'"}'}
+                    <AlertList
+                        alerts={alerts ? alerts.features : []}
+                        title={date ? `Archive: ${date}` : "Flood Warnings"}
+                        onExport={handleExport}
                     />
-                </MapComponent>
-            </div>
-        </div>
+                    <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
+                        {status}
+                    </div>
+                </>
+            }
+            mapContent={
+                <>
+                    <div className="map-interaction-container">
+                        <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
+                            Refresh Data
+                        </button>
+                    </div>
+
+                    <MapComponent>
+                        <WMSTileLayer
+                            url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
+                            layers="0"
+                            format="image/png"
+                            transparent={true}
+                            opacity={0.6}
+                            layerDefs={'{"0":"prod_type=\'Flood Warning\' OR prod_type=\'Flash Flood Warning\' OR prod_type=\'Coastal Flood Warning\'"}'}
+                        />
+                    </MapComponent>
+                </>
+            }
+        />
     );
 };
 

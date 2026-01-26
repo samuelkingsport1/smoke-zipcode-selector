@@ -3,25 +3,41 @@ import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
+import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
 
-const HeatMode = () => {
+const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("Initializing Heat Mode...");
+    const [date, setDate] = useState(""); // Empty = Live
 
     useEffect(() => {
         fetchAlerts();
-    }, []);
+    }, [date]);
 
     const fetchAlerts = async () => {
         setLoading(true);
-        setStatus("Fetching NWS Heat Warnings...");
+        setStatus(date ? `Searching Archive for ${date}...` : "Fetching NWS Heat Warnings...");
+
         try {
-            // Fetch Excessive Heat Warning and Heat Advisory
-            // API allows comma separated events? No, usually one by one or all.
-            // We can fetch all and filter client side for better coverage or make two requests.
-            // Fetch all active alerts without parameters to avoid 400 Bad Request
-            const url = 'https://api.weather.gov/alerts/active';
+            let url;
+            if (date) {
+                const startDate = new Date(date);
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date(date);
+                endDate.setHours(23, 59, 59, 999);
+
+                const params = new URLSearchParams({
+                    start: startDate.toISOString(),
+                    end: endDate.toISOString(),
+                    event: "Excessive Heat Warning,Heat Advisory",
+                    limit: 500
+                });
+                url = `https://api.weather.gov/alerts?${params.toString()}`;
+            } else {
+                url = 'https://api.weather.gov/alerts/active';
+            }
+
             console.log(`[HeatMode] Fetching: ${url}`);
 
             const response = await fetch(url, {
@@ -30,71 +46,55 @@ const HeatMode = () => {
                     'Accept': 'application/geo+json'
                 }
             });
-            console.log(`[HeatMode] Response Status: ${response.status}`);
-
             const rawData = await response.json();
 
-            if (!rawData.features) {
-                console.error("[HeatMode] Invalid response (no features):", rawData);
+            if (!rawData.features && !rawData.title) {
                 setStatus(`Error: NWS API returned ${rawData.title || "unexpected format"}`);
                 return;
             }
 
-            // Filter client-side
+            let features = rawData.features || [];
+
             const targetEvents = ["Excessive Heat Warning", "Heat Advisory"];
-            const features = rawData.features.filter(f => targetEvents.includes(f.properties.event));
 
-            const data = { ...rawData, features: features };
+            // Filter: Event Type + US State strict check
+            features = features.filter(f => {
+                if (!targetEvents.includes(f.properties.event)) return false;
+                const areaDesc = f.properties.areaDesc || "";
+                return STATE_ABBREVIATIONS.some(abbr => areaDesc.includes(`, ${abbr}`) || areaDesc.includes(` ${abbr} `));
+            });
 
-            console.log(`[HeatMode] Filtered ${rawData.features.length} total alerts to ${features.length} Heat events.`);
+            const data = { type: "FeatureCollection", features: features };
+
+            console.log(`[HeatMode] Loaded ${features.length} heat alerts.`);
 
             if (features.length > 0) {
                 const withGeometry = features.filter(f => f.geometry !== null).length;
-                console.log(`[HeatMode] Features with geometry: ${withGeometry} / ${features.length}`);
-
                 setAlerts(data);
-                setStatus(`Loaded ${features.length} Heat Alerts (${withGeometry} visible).`);
+                setStatus(date
+                    ? `Found ${features.length} Historical Alerts for ${date}.`
+                    : `Active: ${features.length} Heat Alerts.`
+                );
             } else {
-                setStatus("No active Heat Alerts found.");
-                console.warn("[HeatMode] 0 matched events found.");
+                setAlerts({ type: "FeatureCollection", features: [] });
+                setStatus(date ? `No Heat alerts found for ${date}.` : "No active Heat Alerts.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);
             setStatus("Error fetching NWS data.");
+            setAlerts(null);
         } finally {
             setLoading(false);
         }
     };
 
     const parseHeatIndex = (description) => {
-        // Regex to find "heat index values up to X" or "X degrees"
         const tempRegex = /heat index.*?(\d+)/i;
         const match = description.match(tempRegex);
         if (match) {
             return parseInt(match[1], 10);
         }
         return 0;
-    };
-
-    const onEachFeature = (feature, layer) => {
-        const props = feature.properties;
-        const heatIndex = parseHeatIndex(props.description || "");
-        const isWarning = props.event === "Excessive Heat Warning";
-
-        layer.bindPopup(`
-      <strong>${props.event}</strong><br/>
-      Expires: ${new Date(props.expires).toLocaleString()}<br/>
-      Est. Heat Index: ${heatIndex > 0 ? heatIndex + "°F" : "High"}<br/>
-      Area: ${props.areaDesc}
-    `);
-
-        layer.setStyle({
-            fillColor: isWarning ? '#FF0000' : '#FF4500', // Red (Warning) vs Orange (Advisory)
-            weight: 2,
-            opacity: 1,
-            color: 'white',
-            fillOpacity: 0.5
-        });
     };
 
     const getProducts = () => {
@@ -110,6 +110,8 @@ const HeatMode = () => {
             return;
         }
 
+        // Basic JSON Export for now (User didn't explicitly demand CSV parity for Heat yet, but let's keep it safe)
+        // If we want parity, we need Turf logic here too. For now, keep original JSON logic but filtered.
         const targets = alerts.features.map(f => ({
             event_id: f.properties.id,
             event_type: "HEATWAVE",
@@ -145,38 +147,61 @@ const HeatMode = () => {
     };
 
     return (
-        <div className="dashboard-layout">
-            <div className="sidebar-section">
-                <AlertList
-                    alerts={alerts ? alerts.features : []}
-                    title="Heat Warnings"
-                    onExport={handleExport}
-                />
-                <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
-                    {status}
-                </div>
-            </div>
+        <DashboardLayout
+            sidebarContent={
+                <>
+                    <div className="sidebar-header" style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                                <strong>Date Range</strong>
+                            </label>
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ddd'
+                                }}
+                            />
+                            {!date && <small style={{ color: '#00cc00', fontSize: '10px' }}>● Live Data</small>}
+                            {date && <button onClick={() => setDate("")} style={{ marginTop: '5px', fontSize: '10px', cursor: 'pointer', background: 'none', border: 'none', color: '#0066cc', textDecoration: 'underline' }}>Return to Live</button>}
+                        </div>
+                    </div>
 
-            <div className="map-section">
-                <div className="map-interaction-container">
-                    <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
-                        Refresh Data
-                    </button>
-                    {/* Export button moved to AlertList */}
-                </div>
-
-                <MapComponent>
-                    <WMSTileLayer
-                        url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
-                        layers="0"
-                        format="image/png"
-                        transparent={true}
-                        opacity={0.6}
-                        layerDefs={'{"0":"prod_type=\'Excessive Heat Warning\' OR prod_type=\'Heat Advisory\'"}'}
+                    <AlertList
+                        alerts={alerts ? alerts.features : []}
+                        title={date ? `Archive: ${date}` : "Heat Warnings"}
+                        onExport={handleExport}
                     />
-                </MapComponent>
-            </div>
-        </div>
+                    <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
+                        {status}
+                    </div>
+                </>
+            }
+            mapContent={
+                <>
+                    <div className="map-interaction-container">
+                        <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
+                            Refresh Data
+                        </button>
+                    </div>
+
+                    <MapComponent>
+                        <WMSTileLayer
+                            url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
+                            layers="0"
+                            format="image/png"
+                            transparent={true}
+                            opacity={0.6}
+                            layerDefs={'{"0":"prod_type=\'Excessive Heat Warning\' OR prod_type=\'Heat Advisory\'"}'}
+                        />
+                    </MapComponent>
+                </>
+            }
+        />
     );
 };
 
