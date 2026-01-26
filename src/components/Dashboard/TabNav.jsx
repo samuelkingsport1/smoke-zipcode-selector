@@ -16,7 +16,10 @@ const TabNav = ({ activeTab, onTabChange }) => {
             padding: '10px',
             backgroundColor: '#f8f9fa',
             borderBottom: '1px solid #ddd',
-            overflowX: 'auto'
+            overflowX: 'auto',
+            position: 'relative',
+            zIndex: 1100, // Ensure it sits on top if anything overlaps
+            flexShrink: 0 // Prevent it from being squashed
         }}>
             {tabs.map(tab => (
                 <button

@@ -5,8 +5,9 @@ import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
 import CountyLayer from '../MapOverlays/CountyLayer';
 import Papa from 'papaparse'; // For CSV Export if needed, or we construct manually
+import * as turf from '@turf/turf';
 
-const WinterMode = () => {
+const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("Initializing Winter Mode...");
@@ -122,42 +123,84 @@ const WinterMode = () => {
             return;
         }
 
-        // Filter: If items selected, export ONLY those. Else export ALL matching general logic.
-        // User requested: "make the selected counties now part of the export" -> implies explicit selection overrides.
-
-        let targets = [];
-
-        if (selectedIds.size > 0) {
-            // Export Selected Only
-            targets = alerts.features.filter(f => selectedIds.has(f.properties.id)).map(formatTarget);
-        } else {
-            // Fallback: Export All (or filtered by expiry logic if we kept it)
-            // For now, let's export all visible to keep it simple unless filtered
-            targets = alerts.features.map(formatTarget);
-        }
-
-        if (targets.length === 0) {
-            alert("No targets found.");
+        if (zipLoading) {
+            alert("Zipcode database is still loading. Please wait 5 seconds and try again.");
             return;
         }
 
-        // Generate JSON for Marketing Team
-        const exportObj = {
-            generated_at: new Date().toISOString(),
-            event_type: "WINTER_STORM",
-            targets: targets
-        };
+        // 1. Identify Target Alerts
+        const targetAlerts = (selectedIds.size > 0)
+            ? alerts.features.filter(f => selectedIds.has(f.properties.id))
+            : alerts.features;
 
-        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'winter_remediation_targets.json');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        if (targetAlerts.length === 0) {
+            alert("No targets selected.");
+            return;
+        }
 
-        setStatus(`Exported ${targets.length} targets.`);
+        setStatus("Calculating affected zip codes...");
+
+        // 2. Perform Spatial Intersection (Polygon vs Zip Points)
+        // This is strictly client-side. Turf is fast enough for <100 polygons vs 40k points.
+        setTimeout(() => {
+            const selectedZips = new Set();
+            let processedCount = 0;
+
+            targetAlerts.forEach(alertFeature => {
+                if (!alertFeature.geometry) return; // Skip alerts without shapes
+
+                // NWS sometimes returns MultiPolygon or Polygon
+                // Turf handles GeoJSON input natively
+
+                // Optimization: Bounding Box Check first
+                const bbox = turf.bbox(alertFeature); // [minX, minY, maxX, maxY]
+
+                zipCodes.forEach(z => {
+                    // Fast BBox filter
+                    if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
+                        // Precise Point-In-Polygon check
+                        // booleanPointInPolygon verifies if the zip centroid is inside the warning area
+                        if (turf.booleanPointInPolygon([z.lng, z.lat], alertFeature)) {
+                            // Add Alert Type to the match so we can list why it was selected?
+                            // User requirement: "Export standard list of counties and zip codes"
+                            // Just unique zip/county rows for now.
+                            selectedZips.add(JSON.stringify(z)); // Use string for Set uniqueness
+                        }
+                    }
+                });
+                processedCount++;
+            });
+
+            if (selectedZips.size === 0) {
+                alert("No zip codes found within the selected alert areas.");
+                setStatus("No zip codes found.");
+                return;
+            }
+
+            // 3. Generate CSV
+            const csvData = Array.from(selectedZips).map(json => {
+                const z = JSON.parse(json);
+                return {
+                    ZIP: z.zip,
+                    CITY: z.city,
+                    COUNTY: z.county || "N/A", // Ensure county is populated if available
+                    STATE: z.state,
+                    // We could add Alert ID if one zip maps to multiple, but usually users want a distinct mailing list
+                };
+            });
+
+            const csv = Papa.unparse(csvData);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'winter_storm_zipcodes.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setStatus(`Exported ${selectedZips.size} unique zip codes from ${targetAlerts.length} alerts.`);
+        }, 100);
     };
 
     const formatTarget = (f) => ({
