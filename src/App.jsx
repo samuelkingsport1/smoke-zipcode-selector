@@ -19,7 +19,7 @@ const App = () => {
 
   useEffect(() => {
     setStatus("Loading Zipcodes...");
-    Papa.parse('/zipcodes.csv', {
+    Papa.parse(`${import.meta.env.BASE_URL}zipcodes.csv`, {
       download: true,
       header: true,
       skipEmptyLines: true,

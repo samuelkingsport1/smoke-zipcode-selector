@@ -122,7 +122,7 @@ const MapComponent = ({ onCreated, onDeleted, onMounted, date, stateMode, select
   useEffect(() => {
     if (stateMode && !geoJsonData) {
       console.log("Fetching US States GeoJSON...");
-      fetch('/us_states.json')
+      fetch(`${import.meta.env.BASE_URL}us_states.json`)
         .then(res => res.json())
         .then(data => {
           console.log("States Loaded", data);
