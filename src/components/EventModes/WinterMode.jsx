@@ -21,16 +21,21 @@ const WinterMode = () => {
             // /alerts/active only shows active. 
             // /alerts shows history but might be heavy.
             // Let's try /alerts with a limit and status=actual
-            const response = await fetch('https://api.weather.gov/alerts?event=Winter%20Storm%20Warning&limit=50');
+            const url = 'https://api.weather.gov/alerts?event=Winter%20Storm%20Warning,Winter%20Weather%20Advisory&limit=50';
+            console.log(`[WinterMode] Fetching: ${url}`);
+
+            const response = await fetch(url);
+            console.log(`[WinterMode] Response Status: ${response.status}`);
+
             const data = await response.json();
+            console.log("[WinterMode] Data received:", data);
 
-            console.log("NWS Alerts:", data);
-
-            if (data.features) {
+            if (data.features && data.features.length > 0) {
                 setAlerts(data);
                 setStatus(`Loaded ${data.features.length} Winter Storm Warnings.`);
             } else {
                 setStatus("No Winter Storm Warnings found.");
+                console.warn("[WinterMode] features array is empty.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);

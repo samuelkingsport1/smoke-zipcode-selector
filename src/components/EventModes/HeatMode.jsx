@@ -21,16 +21,21 @@ const HeatMode = () => {
             // Let's try fetching all active alerts and filtering, or just use "Excessive Heat Warning" as the primary trigger.
             // Brief says "Heat Index > 100".
 
-            const response = await fetch('https://api.weather.gov/alerts?event=Excessive%20Heat%20Warning,Heat%20Advisory&limit=50');
+            const url = 'https://api.weather.gov/alerts?event=Excessive%20Heat%20Warning,Heat%20Advisory&limit=50';
+            console.log(`[HeatMode] Fetching: ${url}`);
+
+            const response = await fetch(url);
+            console.log(`[HeatMode] Response Status: ${response.status}`);
+
             const data = await response.json();
+            console.log("[HeatMode] Data received:", data);
 
-            console.log("NWS Heat Alerts:", data);
-
-            if (data.features) {
+            if (data.features && data.features.length > 0) {
                 setAlerts(data);
                 setStatus(`Loaded ${data.features.length} Heat Alerts.`);
             } else {
                 setStatus("No Heat Alerts found.");
+                console.warn("[HeatMode] features array is empty.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);

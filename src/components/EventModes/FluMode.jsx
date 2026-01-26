@@ -17,8 +17,11 @@ const FluMode = () => {
         setStatus("Fetching State Boundaries & CDC Flu Data...");
         try {
             // 1. Fetch GeoJSON
-            const geoRes = await fetch(`${import.meta.env.BASE_URL}us_states.json`);
+            const geoUrl = `${import.meta.env.BASE_URL}us_states.json`;
+            console.log(`[FluMode] Fetching States: ${geoUrl}`);
+            const geoRes = await fetch(geoUrl);
             const geoData = await geoRes.json();
+            console.log(`[FluMode] States Loaded: ${geoData.features.length} features`);
             setGeoJsonData(geoData);
 
             // 2. Fetch Flu Data

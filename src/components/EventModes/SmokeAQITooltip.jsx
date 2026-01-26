@@ -35,15 +35,23 @@ const SmokeAQITooltip = ({ date }) => {
             const today = new Date().toISOString().split('T')[0];
 
             if (date === today) {
-                const res = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}&current=us_aqi`);
+                const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}&current=us_aqi`;
+                console.log(`[AQI] Fetching Current: ${url}`);
+                const res = await fetch(url);
                 const data = await res.json();
+                console.log("[AQI] Current Data:", data);
+
                 if (data.current && data.current.us_aqi !== undefined) {
                     setAqi(data.current.us_aqi);
                 }
             } else {
                 // Historical data
-                const res = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}&start_date=${date}&end_date=${date}&hourly=us_aqi_pm2_5`);
+                const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}&start_date=${date}&end_date=${date}&hourly=us_aqi_pm2_5`;
+                console.log(`[AQI] Fetching History: ${url}`);
+                const res = await fetch(url);
                 const data = await res.json();
+                console.log("[AQI] History Data:", data);
+
                 if (data.hourly && data.hourly.us_aqi_pm2_5) {
                     // Find max for the day to represent "how bad it got"
                     const valid = data.hourly.us_aqi_pm2_5.filter(v => v !== null);
