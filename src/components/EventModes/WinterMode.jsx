@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
+import AlertList from '../Dashboard/AlertList';
 import Papa from 'papaparse'; // For CSV Export if needed, or we construct manually
 
 const WinterMode = () => {
@@ -160,37 +161,45 @@ const WinterMode = () => {
     };
 
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <div className="map-interaction-container">
-                <div className="info-panel">
-                    <strong>Status:</strong> {status}
+        <div className="dashboard-layout">
+            <div className="sidebar-section">
+                <AlertList
+                    alerts={alerts ? alerts.features : []}
+                    title="Winter Warnings"
+                    onExport={handleExport}
+                />
+
+                {/* Debug Status Footer in sidebar */}
+                <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
+                    {status}
                 </div>
-
-                <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
-                    Refresh Data
-                </button>
-
-                <button className="export-btn" onClick={handleExport} disabled={loading || !alerts}>
-                    Export Target List
-                </button>
             </div>
 
-            <MapComponent>
-                {/* 
-                    Use WMS Layer for visual rendering because API often returns null geometry for zones.
-                    Layer 0 = Current Warnings
-                    Filter: prod_type needs to match "Winter Storm Warning" etc.
-                */}
-                <WMSTileLayer
-                    url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
-                    layers="0"
-                    format="image/png"
-                    transparent={true}
-                    opacity={0.6}
-                    // ArcGIS WMS specific filter
-                    layerDefs={'{"0":"prod_type=\'Winter Storm Warning\' OR prod_type=\'Winter Weather Advisory\'"}'}
-                />
-            </MapComponent>
+            <div className="map-section">
+                <div className="map-interaction-container">
+                    <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
+                        Refresh Data
+                    </button>
+                    {/* Export button moved to AlertList, but kept here as refresh control */}
+                </div>
+
+                <MapComponent>
+                    {/* 
+                        Use WMS Layer for visual rendering because API often returns null geometry for zones.
+                        Layer 0 = Current Warnings
+                        Filter: prod_type needs to match "Winter Storm Warning" etc.
+                    */}
+                    <WMSTileLayer
+                        url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
+                        layers="0"
+                        format="image/png"
+                        transparent={true}
+                        opacity={0.6}
+                        // ArcGIS WMS specific filter
+                        layerDefs={'{"0":"prod_type=\'Winter Storm Warning\' OR prod_type=\'Winter Weather Advisory\'"}'}
+                    />
+                </MapComponent>
+            </div>
         </div>
     );
 };
