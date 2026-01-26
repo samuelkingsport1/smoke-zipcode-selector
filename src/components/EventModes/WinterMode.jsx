@@ -20,12 +20,16 @@ const WinterMode = () => {
             // Fetching both active and recent could be tricky. 
             // /alerts/active only shows active. 
             // /alerts shows history but might be heavy.
-            // Fetch all active alerts (limit 500) and filter client-side.
-            // NOTE: 'status' param is NOT valid for /alerts/active, removing it.
-            const url = 'https://api.weather.gov/alerts/active?limit=500';
+            // Fetch all active alerts without parameters to avoid 400 Bad Request
+            const url = 'https://api.weather.gov/alerts/active';
             console.log(`[WinterMode] Fetching: ${url}`);
 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': '(myweatherapp.com, contact@myweatherapp.com)',
+                    'Accept': 'application/geo+json' // Explicitly ask for GeoJSON
+                }
+            });
             console.log(`[WinterMode] Response Status: ${response.status}`);
 
             const rawData = await response.json();

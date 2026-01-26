@@ -15,11 +15,16 @@ const FloodMode = () => {
         setLoading(true);
         setStatus("Fetching NWS Flood & Hurricane Warnings...");
         try {
-            // Fetch Flash Flood Warning and Hurricane Warning via /alerts/active, remove invalid 'status' param
-            const url = 'https://api.weather.gov/alerts/active?limit=500';
+            // Fetch all active alerts without parameters to avoid 400 Bad Request
+            const url = 'https://api.weather.gov/alerts/active';
             console.log(`[FloodMode] Fetching: ${url}`);
 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': '(myweatherapp.com, contact@myweatherapp.com)',
+                    'Accept': 'application/geo+json'
+                }
+            });
             console.log(`[FloodMode] Response Status: ${response.status}`);
 
             const rawData = await response.json();

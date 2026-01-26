@@ -18,11 +18,16 @@ const HeatMode = () => {
             // Fetch Excessive Heat Warning and Heat Advisory
             // API allows comma separated events? No, usually one by one or all.
             // We can fetch all and filter client side for better coverage or make two requests.
-            // Switch to /alerts/active, removing invalid 'status' param
-            const url = 'https://api.weather.gov/alerts/active?limit=500';
+            // Fetch all active alerts without parameters to avoid 400 Bad Request
+            const url = 'https://api.weather.gov/alerts/active';
             console.log(`[HeatMode] Fetching: ${url}`);
 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': '(myweatherapp.com, contact@myweatherapp.com)',
+                    'Accept': 'application/geo+json'
+                }
+            });
             console.log(`[HeatMode] Response Status: ${response.status}`);
 
             const rawData = await response.json();
