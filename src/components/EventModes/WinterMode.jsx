@@ -3,6 +3,7 @@ import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
+import CountyLayer from '../MapOverlays/CountyLayer';
 import Papa from 'papaparse'; // For CSV Export if needed, or we construct manually
 
 const WinterMode = () => {
@@ -161,47 +162,64 @@ const WinterMode = () => {
         setStatus(`Exported ${targets.length} targets.`);
     };
 
+    // Extract active FIPS codes for CountyLayer
+    const activeFips = alerts && alerts.features ? alerts.features.flatMap(feature => {
+        const geocode = feature.properties.geocode;
+        if (geocode && geocode.SAME) {
+            return geocode.SAME.map(code => code.slice(1)); // Extract 5-digit FIPS
+        }
+        return [];
+    }) : [];
+
     return (
-        <div className="dashboard-layout">
-            <div className="sidebar-section">
-                <AlertList
-                    alerts={alerts ? alerts.features : []}
-                    title="Winter Warnings"
-                    onExport={handleExport}
-                />
-
-                {/* Debug Status Footer in sidebar */}
-                <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
-                    {status}
-                </div>
-            </div>
-
-            <div className="map-section">
-                <div className="map-interaction-container">
-                    <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
-                        Refresh Data
-                    </button>
-                    {/* Export button moved to AlertList, but kept here as refresh control */}
-                </div>
-
-                <MapComponent>
-                    {/* 
-                        Use WMS Layer for visual rendering because API often returns null geometry for zones.
-                        Layer 0 = Current Warnings
-                        Filter: prod_type needs to match "Winter Storm Warning" etc.
-                    */}
-                    <WMSTileLayer
-                        url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
-                        layers="0"
-                        format="image/png"
-                        transparent={true}
-                        opacity={0.6}
-                        // ArcGIS WMS specific filter
-                        layerDefs={'{"0":"prod_type=\'Winter Storm Warning\' OR prod_type=\'Winter Weather Advisory\'"}'}
+        <DashboardLayout
+            sidebarContent={
+                <>
+                    <AlertList
+                        alerts={alerts ? alerts.features : []}
+                        title="Winter Warnings"
+                        onExport={handleExport}
                     />
-                </MapComponent>
-            </div>
-        </div>
+                    <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
+                        {status}
+                    </div>
+                </>
+            }
+            mapContent={
+                <>
+                    <div className="map-interaction-container">
+                        <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
+                            Refresh Data
+                        </button>
+                    </div>
+
+                    <MapComponent>
+                        {/* 
+                            Use WMS Layer for visual rendering because API often returns null geometry for zones.
+                            Layer 0 = Current Warnings
+                            Filter: prod_type needs to match "Winter Storm Warning" etc.
+                        */}
+                        <WMSTileLayer
+                            url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
+                            layers="0"
+                            format="image/png"
+                            transparent={true}
+                            opacity={0.6}
+                            // ArcGIS WMS specific filter
+                            layerDefs={'{"0":"prod_type=\'Winter Storm Warning\' OR prod_type=\'Winter Weather Advisory\'"}'}
+                        />
+
+                        {/* 
+                             County Overlay for specific, sharp highlighting of affect counties
+                        */}
+                        <CountyLayer
+                            activeFips={activeFips}
+                            style={{ color: '#00BFFF', weight: 1, fillOpacity: 0.4 }}
+                        />
+                    </MapComponent>
+                </>
+            }
+        />
     );
 };
 
