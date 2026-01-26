@@ -9,7 +9,7 @@ import PlaceholderMode from './components/EventModes/PlaceholderMode';
 
 const App = () => {
   // Simple version logging
-  const APP_VERSION = "v1.2.1 - 2026-01-26 12:33 PM (Dashboard UI + Re-deploy)";
+  const APP_VERSION = "v1.2.2 - 2026-01-26 12:48 PM (Scroll Fix + Unified Dashboard)";
   console.log(`%c ODP Sales Utility ${APP_VERSION}`, 'background: #222; color: #bada55; font-size: 14px; padding: 4px; border-radius: 4px;');
 
   const [activeTab, setActiveTab] = useState('smoke');
@@ -34,7 +34,8 @@ const App = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
-      <div style={{ flex: 1, position: 'relative' }}>
+      {/* minHeight: 0 is CRITICAL for flexbox scrolling to work in children */}
+      <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {renderContent()}
       </div>
     </div>

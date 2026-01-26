@@ -46,7 +46,6 @@ html,
 
 
 /* Dashboard Layout */
-/* Dashboard Layout */
 .dashboard-layout {
   display: flex;
   height: 100%;
@@ -54,6 +53,9 @@ html,
   position: relative;
   overflow: hidden;
   /* Ensure no body scroll */
+  /* If parent has flex, this should fill it */
+  flex: 1;
+  min-height: 0;
 }
 
 .map-section {
