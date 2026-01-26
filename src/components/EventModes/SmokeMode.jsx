@@ -13,6 +13,7 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
     const [status, setStatus] = useState("Initializing...");
     // Default to yesterday's date as it is safer for satellite data availability
     const [date, setDate] = useState(new Date(Date.now() - 86400000).toISOString().split('T')[0]);
+    console.log("Active Date:", date);
 
     // State Selection Mode States
     const [stateMode, setStateMode] = useState(false);
