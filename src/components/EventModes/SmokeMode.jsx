@@ -9,7 +9,7 @@ import DashboardLayout from '../Dashboard/DashboardLayout';
 import { US_STATES } from '../../utils/constants';
 
 const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // Local processing state (e.g. Export calculation)
     const [status, setStatus] = useState("Initializing...");
     // Default to yesterday's date as it is safer for satellite data availability
     const [date, setDate] = useState(new Date(Date.now() - 86400000).toISOString().split('T')[0]);
@@ -77,6 +77,10 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
 
     const handleExport = () => {
         if (loading) return;
+        if (zipLoading) {
+            alert("Zipcode database is still loading. Please wait a moment.");
+            return;
+        }
 
         const shapeIds = Object.keys(drawnItemsRef.current);
         if (!stateMode && shapeIds.length === 0) {
@@ -214,10 +218,10 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
                         <button
                             className="export-btn"
                             onClick={handleExport}
-                            disabled={loading}
+                            disabled={loading || zipLoading}
                             style={{ width: '100%' }}
                         >
-                            {loading ? 'Processing...' : 'Export Selected Zips'}
+                            {zipLoading ? 'Loading DB...' : (loading ? 'Processing...' : 'Export Selected Zips')}
                         </button>
                     </div>
 
