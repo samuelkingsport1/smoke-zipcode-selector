@@ -20,43 +20,9 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
 
     const drawnItemsRef = useRef({});
 
-    useEffect(() => {
-        setStatus("Loading Zipcodes...");
-        Papa.parse(`${import.meta.env.BASE_URL}zipcodes.csv`, {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                setStatus(`Processing ${results.data.length} zipcodes...`);
-                // Optimize: convert to simpler array of objects
-                const zips = [];
-                results.data.forEach(r => {
-                    const lat = parseFloat(r.LATITUDE);
-                    const lng = parseFloat(r.LONGITUDE);
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        zips.push({
-                            zip: r.STD_ZIP5,
-                            lat: lat,
-                            lng: lng,
-                            city: r.USPS_ZIP_PREF_CITY_1221, // Optional: useful for CSV
-                            state: r.USPS_ZIP_PREF_STATE_1221
-                        });
-                    }
-                });
-                setZipCodes(zips);
-                setLoading(false);
-                if (zips.length > 0) {
-                    console.log("First loaded zip:", zips[0]);
-                }
-                setStatus(`Loaded ${zips.length} zipcodes.`);
-            },
-            error: (err) => {
-                console.error("CSV Parse Error", err);
-                setStatus("Error loading zipcodes.");
-                setLoading(false);
-            }
-        });
-    }, []);
+    // Zip codes are now passed as props from App.jsx
+    // Legacy local parsing removed to fix ReferenceError
+
 
     const handleCreated = (e) => {
         const { layerType, layer } = e;
