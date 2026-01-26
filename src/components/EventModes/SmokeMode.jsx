@@ -5,6 +5,7 @@ import L from 'leaflet';
 import MapComponent from '../MapContainer';
 import SmokeAQITooltip from './SmokeAQITooltip';
 import { WMSTileLayer } from 'react-leaflet';
+import DashboardLayout from '../Dashboard/DashboardLayout';
 
 const SmokeMode = () => {
     const [zipCodes, setZipCodes] = useState([]);

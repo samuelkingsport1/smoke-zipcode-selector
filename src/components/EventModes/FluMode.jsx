@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GeoJSON } from 'react-leaflet';
 import MapComponent from '../MapContainer';
+import DashboardLayout from '../Dashboard/DashboardLayout';
 
 const FluMode = () => {
     const [geoJsonData, setGeoJsonData] = useState(null);
@@ -132,50 +133,51 @@ const FluMode = () => {
         : [];
 
     return (
-        <div className="dashboard-layout">
-            <div className="sidebar-section">
-                <div className="sidebar-header">
-                    <h3>Flu Activity <span className="badge">{highRiskStates.length} High</span></h3>
-                </div>
-
-                <div className="sidebar-content">
-                    {/* List High Risk States */}
-                    {highRiskStates.length > 0 ? (
-                        highRiskStates.map((f, i) => (
-                            <div key={i} className="alert-card">
-                                <div className="alert-card-header">
-                                    <strong>{f.properties.NAME}</strong>
-                                    <span className="status-dot active"></span>
-                                </div>
-                                <div className="alert-card-body">
-                                    <span style={{ fontWeight: 'bold' }}>Activity Level: {fluData[f.properties.NAME]}</span>
-                                    <br />
-                                    <span style={{ fontSize: '11px', color: '#c92a2a' }}>REMEDIATION NEEDED</span>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="alert-list-empty">
-                            <p>No high activity states found.</p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="sidebar-footer">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <button className="export-btn" onClick={fetchStatesAndFlu} disabled={loading} style={{ width: '100%', backgroundColor: '#6c757d' }}>
-                            Resimulate Data
-                        </button>
-
-                        <button className="export-btn" onClick={handleExport} disabled={loading || !geoJsonData} style={{ width: '100%' }}>
-                            Export Target List
-                        </button>
-                        <small style={{ color: '#6c757d', textAlign: 'center', marginTop: '5px' }}>{status}</small>
+        <DashboardLayout
+            sidebarContent={
+                <>
+                    <div className="sidebar-header">
+                        <h3>Flu Activity <span className="badge">{highRiskStates.length} High</span></h3>
                     </div>
-                </div>
-            </div>
 
-            <div className="map-section">
+                    <div className="sidebar-content">
+                        {/* List High Risk States */}
+                        {highRiskStates.length > 0 ? (
+                            highRiskStates.map((f, i) => (
+                                <div key={i} className="alert-card">
+                                    <div className="alert-card-header">
+                                        <strong>{f.properties.NAME}</strong>
+                                        <span className="status-dot active"></span>
+                                    </div>
+                                    <div className="alert-card-body">
+                                        <span style={{ fontWeight: 'bold' }}>Activity Level: {fluData[f.properties.NAME]}</span>
+                                        <br />
+                                        <span style={{ fontSize: '11px', color: '#c92a2a' }}>REMEDIATION NEEDED</span>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="alert-list-empty">
+                                <p>No high activity states found.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="sidebar-footer">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <button className="export-btn" onClick={fetchStatesAndFlu} disabled={loading} style={{ width: '100%', backgroundColor: '#6c757d' }}>
+                                Resimulate Data
+                            </button>
+
+                            <button className="export-btn" onClick={handleExport} disabled={loading || !geoJsonData} style={{ width: '100%' }}>
+                                Export Target List
+                            </button>
+                            <small style={{ color: '#6c757d', textAlign: 'center', marginTop: '5px' }}>{status}</small>
+                        </div>
+                    </div>
+                </>
+            }
+            mapContent={
                 <MapComponent>
                     {geoJsonData && (
                         <GeoJSON
@@ -185,8 +187,8 @@ const FluMode = () => {
                         />
                     )}
                 </MapComponent>
-            </div>
-        </div>
+            }
+        />
     );
 };
 
