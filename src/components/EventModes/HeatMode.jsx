@@ -18,25 +18,32 @@ const HeatMode = () => {
             // Fetch Excessive Heat Warning and Heat Advisory
             // API allows comma separated events? No, usually one by one or all.
             // We can fetch all and filter client side for better coverage or make two requests.
-            // Switch to /alerts/active for geometry
-            const url = 'https://api.weather.gov/alerts/active?event=Excessive%20Heat%20Warning,Heat%20Advisory&limit=50';
+            // Switch to /alerts/active for geometry, client-side filtering
+            const url = 'https://api.weather.gov/alerts/active?status=actual&limit=500';
             console.log(`[HeatMode] Fetching: ${url}`);
 
             const response = await fetch(url);
             console.log(`[HeatMode] Response Status: ${response.status}`);
 
-            const data = await response.json();
-            console.log("[HeatMode] Data received:", data);
+            const rawData = await response.json();
 
-            if (data.features && data.features.length > 0) {
-                const withGeometry = data.features.filter(f => f.geometry !== null).length;
-                console.log(`[HeatMode] Features with geometry: ${withGeometry} / ${data.features.length}`);
+            // Filter client-side
+            const targetEvents = ["Excessive Heat Warning", "Heat Advisory"];
+            const features = rawData.features.filter(f => targetEvents.includes(f.properties.event));
+
+            const data = { ...rawData, features: features };
+
+            console.log(`[HeatMode] Filtered ${rawData.features.length} total alerts to ${features.length} Heat events.`);
+
+            if (features.length > 0) {
+                const withGeometry = features.filter(f => f.geometry !== null).length;
+                console.log(`[HeatMode] Features with geometry: ${withGeometry} / ${features.length}`);
 
                 setAlerts(data);
-                setStatus(`Loaded ${data.features.length} Heat Alerts (${withGeometry} visible).`);
+                setStatus(`Loaded ${features.length} Heat Alerts (${withGeometry} visible).`);
             } else {
-                setStatus("No Heat Alerts found.");
-                console.warn("[HeatMode] features array is empty.");
+                setStatus("No active Heat Alerts found.");
+                console.warn("[HeatMode] 0 matched events found.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);

@@ -15,25 +15,32 @@ const FloodMode = () => {
         setLoading(true);
         setStatus("Fetching NWS Flood & Hurricane Warnings...");
         try {
-            // Fetch Flash Flood Warning and Hurricane Warning via /alerts/active
-            const url = 'https://api.weather.gov/alerts/active?event=Flash%20Flood%20Warning,Hurricane%20Warning&limit=50';
+            // Fetch Flash Flood Warning and Hurricane Warning via /alerts/active with client-side filter
+            const url = 'https://api.weather.gov/alerts/active?status=actual&limit=500';
             console.log(`[FloodMode] Fetching: ${url}`);
 
             const response = await fetch(url);
             console.log(`[FloodMode] Response Status: ${response.status}`);
 
-            const data = await response.json();
-            console.log("[FloodMode] Data received:", data);
+            const rawData = await response.json();
 
-            if (data.features && data.features.length > 0) {
-                const withGeometry = data.features.filter(f => f.geometry !== null).length;
-                console.log(`[FloodMode] Features with geometry: ${withGeometry} / ${data.features.length}`);
+            // Filter client-side
+            const targetEvents = ["Flash Flood Warning", "Hurricane Warning"];
+            const features = rawData.features.filter(f => targetEvents.includes(f.properties.event));
+
+            const data = { ...rawData, features: features };
+
+            console.log(`[FloodMode] Filtered ${rawData.features.length} total alerts to ${features.length} Flood/Hurricane events.`);
+
+            if (features.length > 0) {
+                const withGeometry = features.filter(f => f.geometry !== null).length;
+                console.log(`[FloodMode] Features with geometry: ${withGeometry} / ${features.length}`);
 
                 setAlerts(data);
-                setStatus(`Loaded ${data.features.length} Flood/Hurricane Alerts (${withGeometry} visible).`);
+                setStatus(`Loaded ${features.length} Flood/Hurricane Alerts (${withGeometry} visible).`);
             } else {
-                setStatus("No Flood/Hurricane Alerts found.");
-                console.warn("[FloodMode] features array is empty.");
+                setStatus("No active Flood/Hurricane Alerts found.");
+                console.warn("[FloodMode] 0 matched events found.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);

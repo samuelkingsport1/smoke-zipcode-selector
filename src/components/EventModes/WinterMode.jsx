@@ -20,25 +20,32 @@ const WinterMode = () => {
             // Fetching both active and recent could be tricky. 
             // /alerts/active only shows active. 
             // /alerts shows history but might be heavy.
-            // Let's try /alerts/active which is more likely to have geometry for current warnings
-            const url = 'https://api.weather.gov/alerts/active?event=Winter%20Storm%20Warning,Winter%20Weather%20Advisory&limit=50';
+            // Fetch all active alerts (limit 500) and filter client-side to avoid 400 Bad Request with complex query params
+            const url = 'https://api.weather.gov/alerts/active?status=actual&limit=500';
             console.log(`[WinterMode] Fetching: ${url}`);
 
             const response = await fetch(url);
             console.log(`[WinterMode] Response Status: ${response.status}`);
 
-            const data = await response.json();
-            console.log("[WinterMode] Data received:", data);
+            const rawData = await response.json();
 
-            if (data.features && data.features.length > 0) {
-                const withGeometry = data.features.filter(f => f.geometry !== null).length;
-                console.log(`[WinterMode] Features with geometry: ${withGeometry} / ${data.features.length}`);
+            // Filter client-side
+            const targetEvents = ["Winter Storm Warning", "Winter Weather Advisory"];
+            const features = rawData.features.filter(f => targetEvents.includes(f.properties.event));
+
+            const data = { ...rawData, features: features }; // Construct filtered object
+
+            console.log(`[WinterMode] Filtered ${rawData.features.length} total alerts to ${features.length} Winter events.`);
+
+            if (features.length > 0) {
+                const withGeometry = features.filter(f => f.geometry !== null).length;
+                console.log(`[WinterMode] Features with geometry: ${withGeometry} / ${features.length}`);
 
                 setAlerts(data);
-                setStatus(`Loaded ${data.features.length} Winter Alerts (${withGeometry} visible).`);
+                setStatus(`Loaded ${features.length} Winter Alerts (${withGeometry} visible).`);
             } else {
-                setStatus("No Winter Storm Warnings found.");
-                console.warn("[WinterMode] features array is empty.");
+                setStatus("No active Winter Storm Warnings found.");
+                console.warn("[WinterMode] 0 matched events found.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);
