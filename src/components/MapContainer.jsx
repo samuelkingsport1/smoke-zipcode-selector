@@ -87,7 +87,7 @@ const MapComponent = ({ onCreated, onDeleted, onMounted, date, stateMode, select
     <MapContainer
       center={[39.8283, -98.5795]}
       zoom={4}
-      style={{ height: '100vh', width: '100%' }}
+      style={{ height: '100%', width: '100%' }}
       ref={onMounted}
     >
       <TileLayer
