@@ -1,0 +1,47 @@
+body, html, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+
+.map-interaction-container {
+  position: absolute;
+  top: 20px;
+  right: 80px; /* Left of the draw controls */
+  z-index: 1000;
+  background: white;
+  padding: 10px;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.export-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.export-btn:hover {
+  background-color: #0056b3;
+}
+
+.export-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.info-panel {
+  font-size: 12px;
+  color: #333;
+}
