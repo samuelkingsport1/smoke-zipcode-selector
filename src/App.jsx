@@ -8,6 +8,10 @@ import FluMode from './components/EventModes/FluMode';
 import PlaceholderMode from './components/EventModes/PlaceholderMode';
 
 const App = () => {
+  // Simple version logging
+  const APP_VERSION = "v1.2.0 - 2026-01-26 12:21 PM (WMS Fix)";
+  console.log(`%c ODP Sales Utility ${APP_VERSION}`, 'background: #222; color: #bada55; font-size: 14px; padding: 4px; border-radius: 4px;');
+
   const [activeTab, setActiveTab] = useState('smoke');
 
   const renderContent = () => {
