@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { GeoJSON } from 'react-leaflet';
+import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 import Papa from 'papaparse'; // For CSV Export if needed, or we construct manually
 
@@ -176,12 +176,20 @@ const WinterMode = () => {
             </div>
 
             <MapComponent>
-                {alerts && (
-                    <GeoJSON
-                        data={alerts}
-                        onEachFeature={onEachFeature}
-                    />
-                )}
+                {/* 
+                    Use WMS Layer for visual rendering because API often returns null geometry for zones.
+                    Layer 0 = Current Warnings
+                    Filter: prod_type needs to match "Winter Storm Warning" etc.
+                */}
+                <WMSTileLayer
+                    url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
+                    layers="0"
+                    format="image/png"
+                    transparent={true}
+                    opacity={0.6}
+                    // ArcGIS WMS specific filter
+                    layerDefs={'{"0":"prod_type=\'Winter Storm Warning\' OR prod_type=\'Winter Weather Advisory\'"}'}
+                />
             </MapComponent>
         </div>
     );

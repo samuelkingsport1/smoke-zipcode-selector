@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { GeoJSON } from 'react-leaflet';
+import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 
 const FloodMode = () => {
@@ -152,12 +152,14 @@ const FloodMode = () => {
             </div>
 
             <MapComponent>
-                {alerts && (
-                    <GeoJSON
-                        data={alerts}
-                        onEachFeature={onEachFeature}
-                    />
-                )}
+                <WMSTileLayer
+                    url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
+                    layers="0"
+                    format="image/png"
+                    transparent={true}
+                    opacity={0.6}
+                    layerDefs={'{"0":"prod_type=\'Flash Flood Warning\' OR prod_type=\'Hurricane Warning\'"}'}
+                />
             </MapComponent>
         </div>
     );
