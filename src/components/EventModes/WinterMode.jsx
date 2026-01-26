@@ -8,66 +8,43 @@ import Papa from 'papaparse'; // For CSV Export if needed, or we construct manua
 import * as turf from '@turf/turf';
 
 import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
+import { NWSService } from '../../services/nwsService';
 
 const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("Initializing Winter Mode...");
-    const [filterExpired, setFilterExpired] = useState(false);
+    const [date, setDate] = useState(""); // Empty = Live
 
     useEffect(() => {
         fetchAlerts();
-    }, []);
+    }, [date]);
 
     const fetchAlerts = async () => {
         setLoading(true);
-        setStatus("Fetching NWS Winter Storm Warnings...");
+        setStatus(date ? `Searching Archive for ${date}...` : "Fetching NWS Winter Storm Warnings...");
+
         try {
-            const url = 'https://api.weather.gov/alerts/active';
-            console.log(`[WinterMode] Fetching: ${url}`);
+            const events = "Winter Storm Warning,Winter Weather Advisory";
+            const data = await NWSService.fetchAlerts(date, events);
 
-            const response = await fetch(url, {
-                headers: {
-                    'User-Agent': '(myweatherapp.com, contact@myweatherapp.com)',
-                    'Accept': 'application/geo+json'
-                }
-            });
-            const rawData = await response.json();
+            console.log(`[WinterMode] Loaded ${data.features.length} alerts.`);
 
-            if (!rawData.features) {
-                setStatus(`Error: NWS API returned ${rawData.title || "unexpected format"}`);
-                return;
-            }
-
-            // Filter 1: correct event types
-            const targetEvents = ["Winter Storm Warning", "Winter Weather Advisory"];
-
-            // Filter 2: Must be in a US State (exclude Canada/Marine if NWS leaks them)
-            // Strategy: Check if areaDesc contains a valid State Name or Abbreviation
-            const features = rawData.features.filter(f => {
-                if (!targetEvents.includes(f.properties.event)) return false;
-
-                const areaDesc = f.properties.areaDesc || "";
-
-                // Simple check: does the string contain a state abbreviation?
-                // NWS format: "Miami-Dade, FL; Broward, FL"
-                return STATE_ABBREVIATIONS.some(abbr => areaDesc.includes(`, ${abbr}`) || areaDesc.includes(` ${abbr} `));
-            });
-
-            const data = { ...rawData, features: features };
-
-            console.log(`[WinterMode] Filtered to ${features.length} valid US Winter events.`);
-
-            if (features.length > 0) {
-                const withGeometry = features.filter(f => f.geometry !== null).length;
+            if (data.features.length > 0) {
+                const withGeometry = data.features.filter(f => f.geometry !== null).length;
                 setAlerts(data);
-                setStatus(`Loaded ${features.length} Winter Alerts (${withGeometry} visible).`);
+                setStatus(date
+                    ? `Found ${data.features.length} Historical Alerts for ${date} (${withGeometry} visible).`
+                    : `Active: ${data.features.length} Winter Alerts (${withGeometry} visible).`
+                );
             } else {
-                setStatus("No active Winter Storm Warnings found.");
+                setAlerts({ type: "FeatureCollection", features: [] });
+                setStatus(date ? `No Winter alerts found for ${date}.` : "No active Winter Storm Warnings.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);
-            setStatus("Error fetching NWS data.");
+            setStatus(`Error: ${err.message}`);
+            setAlerts(null);
         } finally {
             setLoading(false);
         }
