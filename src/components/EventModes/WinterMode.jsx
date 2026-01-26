@@ -7,11 +7,13 @@ import CountyLayer from '../MapOverlays/CountyLayer';
 import Papa from 'papaparse'; // For CSV Export if needed, or we construct manually
 import * as turf from '@turf/turf';
 
+import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
+
 const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("Initializing Winter Mode...");
-    const [filterExpired, setFilterExpired] = useState(false); // Brief says "Expired", but for dev we might want to see active
+    const [filterExpired, setFilterExpired] = useState(false);
 
     useEffect(() => {
         fetchAlerts();
@@ -21,46 +23,47 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
         setLoading(true);
         setStatus("Fetching NWS Winter Storm Warnings...");
         try {
-            // Fetching both active and recent could be tricky. 
-            // /alerts/active only shows active. 
-            // /alerts shows history but might be heavy.
-            // Fetch all active alerts without parameters to avoid 400 Bad Request
             const url = 'https://api.weather.gov/alerts/active';
             console.log(`[WinterMode] Fetching: ${url}`);
 
             const response = await fetch(url, {
                 headers: {
                     'User-Agent': '(myweatherapp.com, contact@myweatherapp.com)',
-                    'Accept': 'application/geo+json' // Explicitly ask for GeoJSON
+                    'Accept': 'application/geo+json'
                 }
             });
-            console.log(`[WinterMode] Response Status: ${response.status}`);
-
             const rawData = await response.json();
 
             if (!rawData.features) {
-                console.error("[WinterMode] Invalid response (no features):", rawData);
                 setStatus(`Error: NWS API returned ${rawData.title || "unexpected format"}`);
                 return;
             }
 
-            // Filter client-side
+            // Filter 1: correct event types
             const targetEvents = ["Winter Storm Warning", "Winter Weather Advisory"];
-            const features = rawData.features.filter(f => targetEvents.includes(f.properties.event));
 
-            const data = { ...rawData, features: features }; // Construct filtered object
+            // Filter 2: Must be in a US State (exclude Canada/Marine if NWS leaks them)
+            // Strategy: Check if areaDesc contains a valid State Name or Abbreviation
+            const features = rawData.features.filter(f => {
+                if (!targetEvents.includes(f.properties.event)) return false;
 
-            console.log(`[WinterMode] Filtered ${rawData.features.length} total alerts to ${features.length} Winter events.`);
+                const areaDesc = f.properties.areaDesc || "";
+
+                // Simple check: does the string contain a state abbreviation?
+                // NWS format: "Miami-Dade, FL; Broward, FL"
+                return STATE_ABBREVIATIONS.some(abbr => areaDesc.includes(`, ${abbr}`) || areaDesc.includes(` ${abbr} `));
+            });
+
+            const data = { ...rawData, features: features };
+
+            console.log(`[WinterMode] Filtered to ${features.length} valid US Winter events.`);
 
             if (features.length > 0) {
                 const withGeometry = features.filter(f => f.geometry !== null).length;
-                console.log(`[WinterMode] Features with geometry: ${withGeometry} / ${features.length}`);
-
                 setAlerts(data);
                 setStatus(`Loaded ${features.length} Winter Alerts (${withGeometry} visible).`);
             } else {
                 setStatus("No active Winter Storm Warnings found.");
-                console.warn("[WinterMode] 0 matched events found.");
             }
         } catch (err) {
             console.error("Failed to fetch alerts", err);
