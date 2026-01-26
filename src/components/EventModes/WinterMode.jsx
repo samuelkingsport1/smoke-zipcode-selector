@@ -69,6 +69,10 @@ const WinterMode = () => {
         }
     };
 
+    // State for interactive selection
+    const [focusedId, setFocusedId] = useState(null);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+
     const parseSnowAccumulation = (description) => {
         // Regex to find "X inches" or "X to Y inches"
         // This is naive but a good start
@@ -118,28 +122,22 @@ const WinterMode = () => {
             return;
         }
 
-        // Filter Logic: Expired + > 2 inches
-        const targets = alerts.features.filter(f => {
-            const isExpired = new Date(f.properties.expires) < new Date();
-            const snow = parseSnowAccumulation(f.properties.description || "");
+        // Filter: If items selected, export ONLY those. Else export ALL matching general logic.
+        // User requested: "make the selected counties now part of the export" -> implies explicit selection overrides.
 
-            // Toggle logic based on checkbox or strict adherence to brief
-            // For now, let's export ALL matches but flag them
-            return true;
-        }).map(f => ({
-            event_id: f.properties.id,
-            event_type: "WINTER_STORM",
-            timestamp: f.properties.sent,
-            expires: f.properties.expires,
-            remediation_start: f.properties.expires,
-            area: f.properties.areaDesc,
-            snow_inches: parseSnowAccumulation(f.properties.description || ""),
-            status: new Date(f.properties.expires) < new Date() ? "EXPIRED" : "ACTIVE",
-            suggested_products: getProducts().map(p => p.category).join("; ")
-        }));
+        let targets = [];
+
+        if (selectedIds.size > 0) {
+            // Export Selected Only
+            targets = alerts.features.filter(f => selectedIds.has(f.properties.id)).map(formatTarget);
+        } else {
+            // Fallback: Export All (or filtered by expiry logic if we kept it)
+            // For now, let's export all visible to keep it simple unless filtered
+            targets = alerts.features.map(formatTarget);
+        }
 
         if (targets.length === 0) {
-            alert("No matching targets found.");
+            alert("No targets found.");
             return;
         }
 
@@ -162,14 +160,55 @@ const WinterMode = () => {
         setStatus(`Exported ${targets.length} targets.`);
     };
 
-    // Extract active FIPS codes for CountyLayer
-    const activeFips = alerts && alerts.features ? alerts.features.flatMap(feature => {
+    const formatTarget = (f) => ({
+        event_id: f.properties.id,
+        event_type: "WINTER_STORM",
+        timestamp: f.properties.sent,
+        expires: f.properties.expires,
+        remediation_start: f.properties.expires,
+        area: f.properties.areaDesc,
+        snow_inches: parseSnowAccumulation(f.properties.description || ""),
+        status: new Date(f.properties.expires) < new Date() ? "EXPIRED" : "ACTIVE",
+        suggested_products: getProducts().map(p => p.category).join("; ")
+    });
+
+    // Interaction Handlers
+    const handleAlertClick = (alert) => {
+        setFocusedId(alert.properties.id);
+    };
+
+    const handleAlertToggle = (id) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedIds(newSet);
+    };
+
+    // Helper to get FIPS from an alert feature
+    const getFips = (feature) => {
         const geocode = feature.properties.geocode;
         if (geocode && geocode.SAME) {
-            return geocode.SAME.map(code => code.slice(1)); // Extract 5-digit FIPS
+            return geocode.SAME.map(code => code.slice(1));
         }
         return [];
-    }) : [];
+    };
+
+    // Calculate FIPS lists for layers
+    // 1. Focused
+    const focusedFeature = alerts?.features.find(f => f.properties.id === focusedId);
+    const focusedFips = focusedFeature ? getFips(focusedFeature) : [];
+
+    // 2. Selected
+    const selectedFips = alerts?.features
+        .filter(f => selectedIds.has(f.properties.id))
+        .flatMap(getFips) || [];
+
+    // 3. Active (All visible, for background context)
+    const activeFips = alerts?.features.flatMap(getFips) || [];
+
 
     return (
         <DashboardLayout
@@ -179,6 +218,10 @@ const WinterMode = () => {
                         alerts={alerts ? alerts.features : []}
                         title="Winter Warnings"
                         onExport={handleExport}
+                        onAlertClick={handleAlertClick}
+                        onAlertToggle={handleAlertToggle}
+                        selectedIds={selectedIds}
+                        focusedId={focusedId}
                     />
                     <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
                         {status}
@@ -214,7 +257,9 @@ const WinterMode = () => {
                         */}
                         <CountyLayer
                             activeFips={activeFips}
-                            style={{ color: '#00BFFF', weight: 1, fillOpacity: 0.4 }}
+                            focusedFips={focusedFips}
+                            selectedFips={selectedFips}
+                            style={{ color: '#00BFFF', weight: 1, fillOpacity: 0.2 }}
                         />
                     </MapComponent>
                 </>
