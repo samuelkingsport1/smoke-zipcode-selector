@@ -125,32 +125,67 @@ const FluMode = () => {
         setStatus(`Exported ${targets.length} high-risk states.`);
     };
 
+    // Helper to get high risk states for the sidebar list
+    const highRiskStates = geoJsonData ? geoJsonData.features
+        .filter(f => (fluData[f.properties.NAME] || 0) > 8)
+        .sort((a, b) => (fluData[b.properties.NAME] || 0) - (fluData[a.properties.NAME] || 0))
+        : [];
+
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <div className="map-interaction-container">
-                <div className="info-panel">
-                    <strong>Status:</strong> {status} <br />
-                    <small>(Simulated Live Data)</small>
+        <div className="dashboard-layout">
+            <div className="sidebar-section">
+                <div className="sidebar-header">
+                    <h3>Flu Activity <span className="badge">{highRiskStates.length} High</span></h3>
                 </div>
 
-                <button className="export-btn" onClick={fetchStatesAndFlu} disabled={loading}>
-                    Resimulate Data
-                </button>
+                <div className="sidebar-content">
+                    {/* List High Risk States */}
+                    {highRiskStates.length > 0 ? (
+                        highRiskStates.map((f, i) => (
+                            <div key={i} className="alert-card">
+                                <div className="alert-card-header">
+                                    <strong>{f.properties.NAME}</strong>
+                                    <span className="status-dot active"></span>
+                                </div>
+                                <div className="alert-card-body">
+                                    <span style={{ fontWeight: 'bold' }}>Activity Level: {fluData[f.properties.NAME]}</span>
+                                    <br />
+                                    <span style={{ fontSize: '11px', color: '#c92a2a' }}>REMEDIATION NEEDED</span>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="alert-list-empty">
+                            <p>No high activity states found.</p>
+                        </div>
+                    )}
+                </div>
 
-                <button className="export-btn" onClick={handleExport} disabled={loading || !geoJsonData}>
-                    Export Target List
-                </button>
+                <div className="sidebar-footer">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <button className="export-btn" onClick={fetchStatesAndFlu} disabled={loading} style={{ width: '100%', backgroundColor: '#6c757d' }}>
+                            Resimulate Data
+                        </button>
+
+                        <button className="export-btn" onClick={handleExport} disabled={loading || !geoJsonData} style={{ width: '100%' }}>
+                            Export Target List
+                        </button>
+                        <small style={{ color: '#6c757d', textAlign: 'center', marginTop: '5px' }}>{status}</small>
+                    </div>
+                </div>
             </div>
 
-            <MapComponent>
-                {geoJsonData && (
-                    <GeoJSON
-                        data={geoJsonData}
-                        style={styleState}
-                        onEachFeature={onEachFeature}
-                    />
-                )}
-            </MapComponent>
+            <div className="map-section">
+                <MapComponent>
+                    {geoJsonData && (
+                        <GeoJSON
+                            data={geoJsonData}
+                            style={styleState}
+                            onEachFeature={onEachFeature}
+                        />
+                    )}
+                </MapComponent>
+            </div>
         </div>
     );
 };

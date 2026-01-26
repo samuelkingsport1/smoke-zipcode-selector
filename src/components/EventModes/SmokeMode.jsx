@@ -216,71 +216,95 @@ const SmokeMode = () => {
     };
 
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <div className="map-interaction-container">
-                <div className="info-panel">
-                    <strong>Status:</strong> {status}
+        <div className="dashboard-layout">
+            <div className="sidebar-section">
+                <div className="sidebar-header">
+                    <h3>Smoke / AQI</h3>
+                    <div className="sidebar-input-group">
+                        <label className="sidebar-label">Data Date</label>
+                        <input
+                            type="date"
+                            value={date}
+                            max={new Date().toISOString().split('T')[0]}
+                            onChange={(e) => setDate(e.target.value)}
+                            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', width: '100%' }}
+                        />
+                    </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Data Date:</label>
-                    <input
-                        type="date"
-                        value={date}
-                        max={new Date().toISOString().split('T')[0]}
-                        onChange={(e) => setDate(e.target.value)}
-                        style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
-                    />
+                <div className="sidebar-content">
+                    <div className="sidebar-input-group">
+                        <label className="sidebar-label">Controls</label>
+                        <button
+                            onClick={() => setStateMode(!stateMode)}
+                            style={{
+                                padding: '10px',
+                                borderRadius: '4px',
+                                border: '1px solid #ced4da',
+                                backgroundColor: stateMode ? '#0d6efd' : 'white',
+                                color: stateMode ? 'white' : '#495057',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                width: '100%',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {stateMode ? "State Selection: ON" : "Enable State Selection"}
+                        </button>
+                    </div>
+
+                    <div className="sidebar-input-group">
+                        <label className="sidebar-label">Export Data</label>
+                        <button
+                            className="export-btn"
+                            onClick={handleExport}
+                            disabled={loading}
+                            style={{ width: '100%' }}
+                        >
+                            {loading ? 'Processing...' : 'Export Selected Zips'}
+                        </button>
+                    </div>
+
+                    <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#e9ecef', borderRadius: '6px' }}>
+                        <p style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: 'bold' }}>Instructions:</p>
+                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', color: '#666' }}>
+                            <li>Use the Shape Tools (top right of map) to draw a box or polygon.</li>
+                            <li>Or toggle "State Selection" to click states.</li>
+                            <li>Click "Export" to download CSV of zip codes in those areas.</li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <button
-                        onClick={() => setStateMode(!stateMode)}
-                        style={{
-                            padding: '8px',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc',
-                            backgroundColor: stateMode ? '#3388ff' : 'white',
-                            color: stateMode ? 'white' : 'black',
-                            cursor: 'pointer',
-                            fontWeight: 'bold'
-                        }}
-                    >
-                        {stateMode ? "State Mode Active" : "Enable State Mode"}
-                    </button>
+                <div className="sidebar-footer">
+                    <small style={{ color: '#6c757d' }}>{status}</small>
                 </div>
-
-                <button
-                    className="export-btn"
-                    onClick={handleExport}
-                    disabled={loading}
-                >
-                    {loading ? 'Loading Data...' : 'Export Selected Zips'}
-                </button>
             </div>
 
-            <MapComponent
-                onCreated={handleCreated}
-                onDeleted={handleDeleted}
-                date={date}
-                stateMode={stateMode}
-                selectedStates={selectedStates}
-                onStateClick={handleStateClick}
-            >
-                <WMSTileLayer
-                    key={`wms-${date}`}
-                    url="https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi"
-                    layers="MODIS_Combined_Value_Added_AOD"
-                    format="image/png"
-                    transparent={true}
-                    opacity={0.6}
-                    attribution="NASA GIBS Combined Modis AOD"
-                    params={{
-                        TIME: date
-                    }}
-                />
-                <SmokeAQITooltip date={date} />
-            </MapComponent>
+            <div className="map-section">
+                {/* Map Interaction Container removed as controls are now in sidebar */}
+                <MapComponent
+                    onCreated={handleCreated}
+                    onDeleted={handleDeleted}
+                    date={date}
+                    stateMode={stateMode}
+                    selectedStates={selectedStates}
+                    onStateClick={handleStateClick}
+                >
+                    <WMSTileLayer
+                        key={`wms-${date}`}
+                        url="https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi"
+                        layers="MODIS_Combined_Value_Added_AOD"
+                        format="image/png"
+                        transparent={true}
+                        opacity={0.6}
+                        attribution="NASA GIBS Combined Modis AOD"
+                        params={{
+                            TIME: date
+                        }}
+                    />
+                    <SmokeAQITooltip date={date} />
+                </MapComponent>
+            </div>
         </div>
     );
 };
