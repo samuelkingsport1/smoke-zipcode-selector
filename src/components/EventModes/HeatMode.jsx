@@ -57,12 +57,8 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
 
             const targetEvents = ["Excessive Heat Warning", "Heat Advisory"];
 
-            // Filter: Event Type + US State strict check
-            features = features.filter(f => {
-                if (!targetEvents.includes(f.properties.event)) return false;
-                const areaDesc = f.properties.areaDesc || "";
-                return STATE_ABBREVIATIONS.some(abbr => areaDesc.includes(`, ${abbr}`) || areaDesc.includes(` ${abbr} `));
-            });
+            // Filter: Removed strict US State check
+            features = features.filter(f => targetEvents.includes(f.properties.event));
 
             const data = { type: "FeatureCollection", features: features };
 

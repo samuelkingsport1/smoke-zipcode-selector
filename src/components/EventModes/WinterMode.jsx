@@ -260,9 +260,30 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
         <DashboardLayout
             sidebarContent={
                 <>
+                    <div className="sidebar-header" style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                                <strong>Date Range</strong>
+                            </label>
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ddd'
+                                }}
+                            />
+                            {!date && <small style={{ color: '#00cc00', fontSize: '10px' }}>● Live Data</small>}
+                            {date && <button onClick={() => setDate("")} style={{ marginTop: '5px', fontSize: '10px', cursor: 'pointer', background: 'none', border: 'none', color: '#0066cc', textDecoration: 'underline' }}>Return to Live</button>}
+                        </div>
+                    </div>
+
                     <AlertList
                         alerts={alerts ? alerts.features : []}
-                        title="Winter Warnings"
+                        title={date ? `Archive: ${date}` : "Winter Warnings"}
                         onExport={handleExport}
                         onAlertClick={handleAlertClick}
                         onAlertToggle={handleAlertToggle}
