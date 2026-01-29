@@ -53,42 +53,90 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
     };
 
     const handleExport = () => {
-        if (!alerts || !alerts.features.length) {
-            alert("No data to export.");
+        if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
+            alert("No data to export or zip codes not loaded.");
             return;
         }
 
-        const targets = alerts.features.map(f => ({
-            event_id: f.properties.id,
-            event_type: "FLOOD",
-            timestamp: f.properties.sent,
-            expires: f.properties.expires,
-            area: f.properties.areaDesc,
-            alert_type: f.properties.event,
-            suggested_products: getProducts().map(p => p.category).join("; ")
-        }));
+        setStatus("Processing export...");
 
-        if (targets.length === 0) {
-            alert("No matching targets found.");
-            return;
-        }
+        setTimeout(() => {
+            const targets = [];
+            const uniqueEntries = new Set();
 
-        const exportObj = {
-            generated_at: new Date().toISOString(),
-            event_type: "FLOOD",
-            targets: targets
-        };
+            alerts.features.forEach(alert => {
+                const hasGeometry = !!alert.geometry;
+                const areaDesc = (alert.properties.areaDesc || "").toUpperCase();
+                const eventName = alert.properties.event || "Flood Warning";
 
-        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'flood_targets.json');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+                let bbox = null;
+                if (hasGeometry) {
+                    bbox = turf.bbox(alert);
+                }
 
-        setStatus(`Exported ${targets.length} targets.`);
+                zipCodes.forEach(z => {
+                    let isMatch = false;
+
+                    // 1. Geometric Match
+                    if (hasGeometry && bbox) {
+                        if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
+                            if (turf.booleanPointInPolygon([z.lng, z.lat], alert)) {
+                                isMatch = true;
+                            }
+                        }
+                    }
+
+                    // 2. Text Match Fallback
+                    if (!isMatch && !hasGeometry) {
+                        if (z.county && z.state) {
+                            const searchStr = `${z.county}, ${z.state}`.toUpperCase();
+                            if (areaDesc.includes(searchStr)) {
+                                isMatch = true;
+                            }
+                        }
+                    }
+
+                    if (isMatch) {
+                        const entryId = `${z.zip}-${eventName}`;
+                        if (!uniqueEntries.has(entryId)) {
+                            uniqueEntries.add(entryId);
+                            targets.push({
+                                zip: z.zip,
+                                county: z.county,
+                                state: z.state,
+                                alert_name: eventName,
+                                sent: alert.properties.sent,
+                                expires: alert.properties.expires,
+                                suggested_products: getProducts().map(p => p.category).join("; ")
+                            });
+                        }
+                    }
+                });
+            });
+
+            if (targets.length === 0) {
+                alert("No matching targets found (checked geometry and county text).");
+                setStatus("Ready");
+                return;
+            }
+
+            const exportObj = {
+                generated_at: new Date().toISOString(),
+                event_type: "FLOOD",
+                targets: targets
+            };
+
+            const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'flood_targets.json');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setStatus(`Exported ${targets.length} targets.`);
+        }, 100);
     };
 
     return (
