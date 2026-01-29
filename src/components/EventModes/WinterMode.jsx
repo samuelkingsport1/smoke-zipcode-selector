@@ -127,25 +127,48 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
             let processedCount = 0;
 
             targetAlerts.forEach(alertFeature => {
-                if (!alertFeature.geometry) return; // Skip alerts without shapes
+                const hasGeometry = !!alertFeature.geometry;
+                const areaDesc = (alertFeature.properties.areaDesc || "").toUpperCase();
 
-                // NWS sometimes returns MultiPolygon or Polygon
-                // Turf handles GeoJSON input natively
-
-                // Optimization: Bounding Box Check first
-                const bbox = turf.bbox(alertFeature); // [minX, minY, maxX, maxY]
+                // Pre-calc bbox if geometry exists
+                let bbox = null;
+                if (hasGeometry) {
+                    bbox = turf.bbox(alertFeature);
+                }
 
                 zipCodes.forEach(z => {
-                    // Fast BBox filter
-                    if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
-                        // Precise Point-In-Polygon check
-                        // booleanPointInPolygon verifies if the zip centroid is inside the warning area
-                        if (turf.booleanPointInPolygon([z.lng, z.lat], alertFeature)) {
-                            // Add Alert Type to the match so we can list why it was selected?
-                            // User requirement: "Export standard list of counties and zip codes"
-                            // Just unique zip/county rows for now.
-                            selectedZips.add(JSON.stringify(z)); // Use string for Set uniqueness
+                    let isMatch = false;
+
+                    // 1. Geometric Match (High Precision)
+                    if (hasGeometry && bbox) {
+                        // Fast BBox filter
+                        if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
+                            if (turf.booleanPointInPolygon([z.lng, z.lat], alertFeature)) {
+                                isMatch = true;
+                            }
                         }
+                    }
+
+                    // 2. Text Match Fallback (If geometry missing or to catch edge cases)
+                    // If no geometry, we MUST use text match.
+                    // Risk: "Clay" matches "Clayton". 
+                    // Mitigation: Check for county + state if possible, or just county strict check if we can.
+                    // For now: Simple inclusion check, but verify State if available in Zip
+                    if (!isMatch && !hasGeometry) {
+                        // NWS areaDesc usually: "Cook, IL; Lake, IL"
+                        // Zip: county="COOK", state="IL"
+                        if (z.county && z.state) {
+                            const searchStr = `${z.county}, ${z.state}`.toUpperCase(); // "COOK, IL"
+                            if (areaDesc.includes(searchStr)) {
+                                isMatch = true;
+                            }
+                            // Fallback: Just County Name if "State" is not in areaDesc (unlikely for NWS, but possible)
+                            // else if (areaDesc.includes(z.county.toUpperCase())) { ... }
+                        }
+                    }
+
+                    if (isMatch) {
+                        selectedZips.add(JSON.stringify(z));
                     }
                 });
                 processedCount++;
