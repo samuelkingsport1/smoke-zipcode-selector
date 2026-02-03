@@ -176,6 +176,86 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
         }, 100);
     };
 
+    const handleExportSQL = () => {
+        if (loading) return;
+        if (zipLoading) {
+            alert("Zipcode database is still loading. Please wait a moment.");
+            return;
+        }
+
+        const shapeIds = Object.keys(drawnItemsRef.current);
+        if (!stateMode && shapeIds.length === 0) {
+            alert("No areas selected. Please draw a box, polygon, or circle first.");
+            return;
+        }
+
+        setStatus("Generating SQL...");
+
+        setTimeout(() => {
+            const selectedZips = new Set();
+
+            // 1. Check drawn shapes
+            if (!stateMode) {
+                shapeIds.forEach(id => {
+                    const shape = drawnItemsRef.current[id];
+                    const poly = turf.polygon(shape.geometry.coordinates);
+                    const bbox = turf.bbox(poly);
+
+                    zipCodes.forEach(z => {
+                        if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
+                            if (turf.booleanPointInPolygon([z.lng, z.lat], poly)) {
+                                selectedZips.add(z.zip); // Store zip string only
+                            }
+                        }
+                    });
+                });
+            } else {
+                // 2. State Mode
+                 if (selectedStates.size === 0) {
+                    alert("No states selected.");
+                    setStatus("No states selected.");
+                    return;
+                }
+                const stateNameMap = US_STATES;
+                const selectedAbbrevs = new Set();
+                selectedStates.forEach(name => {
+                    if (stateNameMap[name]) selectedAbbrevs.add(stateNameMap[name]);
+                });
+
+                zipCodes.forEach(z => {
+                    if (selectedAbbrevs.has(z.state)) {
+                        selectedZips.add(z.zip);
+                    }
+                });
+            }
+
+            if (selectedZips.size === 0) {
+                alert("No zip codes found in selected areas.");
+                setStatus("No zip codes found.");
+                return;
+            }
+
+            const zipList = Array.from(selectedZips);
+            const zipString = zipList.map(z => `'${z}'`).join(", ");
+
+            const sqlContent = `Select id, Name, CUST_ID__C
+From SFDC_DS.SFDC_ACCOUNT_OBJECT
+Where RECORDTYPE_NAME__C = 'Site'
+AND Zip__c IN (${zipString})`;
+
+            const blob = new Blob([sqlContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'smoke_targets.sql');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
+        }, 100);
+    };
+
     return (
         <div className="dashboard-layout">
             <div className="sidebar-section">
