@@ -6,7 +6,7 @@ import MapComponent from '../MapContainer';
 import SmokeAQITooltip from './SmokeAQITooltip';
 import { WMSTileLayer } from 'react-leaflet';
 import DashboardLayout from '../Dashboard/DashboardLayout';
-import { US_STATES } from '../../utils/constants';
+import SQLExportControls from '../Dashboard/SQLExportControls';
 
 const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
     const [loading, setLoading] = useState(false); // Local processing state (e.g. Export calculation)
@@ -14,6 +14,17 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
     // Default to yesterday's date as it is safer for satellite data availability
     const [date, setDate] = useState(new Date(Date.now() - 86400000).toISOString().split('T')[0]);
     console.log("Active Date:", date);
+
+    // SQL Export Config State
+    const [sqlConfig, setSqlConfig] = useState({
+        recordType: 'Site',
+        fields: {
+            'Last_Order_Date__C': true,
+            'Total_LY_Sales__C': true,
+            'Total_ty_Sales_to_Date__c': true
+        },
+        sortBy: ''
+    });
 
     // State Selection Mode States
     const [stateMode, setStateMode] = useState(false);
@@ -241,7 +252,7 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
             if (actionType === 'COUNT') {
                 const countSql = `Select count(id)
 From SFDC_DS.SFDC_ACCOUNT_OBJECT
-Where RECORDTYPE_NAME__C = 'Site'
+Where RECORDTYPE_NAME__C = '${sqlConfig.recordType}'
 AND Zip__c IN (${zipString})`;
 
                 navigator.clipboard.writeText(countSql).then(() => {
@@ -250,11 +261,19 @@ AND Zip__c IN (${zipString})`;
                 });
 
             } else {
+                 // Dynamic Field Selection
+                 const baseFields = ["id", "Name", "CUST_ID__C"];
+                 const additionalFields = Object.keys(sqlConfig.fields).filter(key => sqlConfig.fields[key]);
+                 const allFields = [...baseFields, ...additionalFields].join(", ");
+
+                 // Sorting
+                 const orderByClause = sqlConfig.sortBy ? `\nORDER BY ${sqlConfig.sortBy} DESC NULLS LAST` : "";
+
                 // Standard Select Query
-                const sqlContent = `Select id, Name, CUST_ID__C
+                const sqlContent = `Select ${allFields}
 From SFDC_DS.SFDC_ACCOUNT_OBJECT
-Where RECORDTYPE_NAME__C = 'Site'
-AND Zip__c IN (${zipString})`;
+Where RECORDTYPE_NAME__C = '${sqlConfig.recordType}'
+AND Zip__c IN (${zipString})${orderByClause}`;
 
                 if (actionType === 'COPY') {
                     navigator.clipboard.writeText(sqlContent).then(() => {
