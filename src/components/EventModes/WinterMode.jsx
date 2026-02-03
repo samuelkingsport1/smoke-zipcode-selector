@@ -54,48 +54,11 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
     const [focusedId, setFocusedId] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
 
-    const parseSnowAccumulation = (description) => {
-        // Regex to find "X inches" or "X to Y inches"
-        // This is naive but a good start
-        const inchRegex = /(\d+)(\s+to\s+\d+)?\s+inches/;
-        const match = description.match(inchRegex);
-        if (match) {
-            return parseInt(match[1], 10);
-        }
-        return 0;
-    };
+    // parseSnowAccumulation removed as it was unused
 
-    const onEachFeature = (feature, layer) => {
-        const props = feature.properties;
-        const snow = parseSnowAccumulation(props.description || "");
-        const isExpired = new Date(props.expires) < new Date();
+    // onEachFeature removed as it was unused
 
-        // Bind popup
-        layer.bindPopup(`
-      <strong>${props.event}</strong><br/>
-      Expires: ${new Date(props.expires).toLocaleString()}<br/>
-      Status: ${isExpired ? "EXPIRED (Remediation Ready)" : "ACTIVE"}<br/>
-      Est. Snow: ${snow} inches<br/>
-      Area: ${props.areaDesc}
-    `);
-
-        // Style
-        layer.setStyle({
-            fillColor: isExpired ? '#00BFFF' : '#00008B', // Light Blue (Remediation) vs Dark Blue (Active)
-            weight: 2,
-            opacity: 1,
-            color: 'white',
-            fillOpacity: 0.5
-        });
-    };
-
-    // Product Mapping
-    const getProducts = () => {
-        return [
-            { category: "Chemicals", skus: ["Floor Neutralizer", "Salt Dissolver"] },
-            { category: "Hardware", skus: ["Wet/Dry Vac", "Mop Bucket", "Scraper Mat"] }
-        ];
-    };
+    // getProducts removed as it was unused
 
     const handleExport = () => {
         if (!alerts || !alerts.features.length) {
@@ -124,7 +87,7 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
         // This is strictly client-side. Turf is fast enough for <100 polygons vs 40k points.
         setTimeout(() => {
             const selectedZips = new Set();
-            let processedCount = 0;
+            // processedCount removed as it was unused
 
             targetAlerts.forEach(alertFeature => {
                 const hasGeometry = !!alertFeature.geometry;
@@ -171,7 +134,6 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
                         selectedZips.add(JSON.stringify(z));
                     }
                 });
-                processedCount++;
             });
 
             if (selectedZips.size === 0) {
@@ -312,17 +274,7 @@ AND Zip__c IN (${zipString})`;
         }, 100);
     };
 
-    const formatTarget = (f) => ({
-        event_id: f.properties.id,
-        event_type: "WINTER_STORM",
-        timestamp: f.properties.sent,
-        expires: f.properties.expires,
-        remediation_start: f.properties.expires,
-        area: f.properties.areaDesc,
-        snow_inches: parseSnowAccumulation(f.properties.description || ""),
-        status: new Date(f.properties.expires) < new Date() ? "EXPIRED" : "ACTIVE",
-        suggested_products: getProducts().map(p => p.category).join("; ")
-    });
+    // formatTarget removed as it was unused
 
     // Interaction Handlers
     const handleAlertClick = (alert) => {

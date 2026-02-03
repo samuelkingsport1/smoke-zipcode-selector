@@ -5,6 +5,7 @@ import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
 import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
 import { NWSService } from '../../services/nwsService';
+import * as turf from '@turf/turf';
 
 const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
@@ -55,6 +56,11 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
     const handleExport = () => {
         if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
             alert("No data to export or zip codes not loaded.");
+            return;
+        }
+
+        if (zipLoading) {
+            alert("Zipcode database is still loading. Please wait 5 seconds and try again.");
             return;
         }
 
@@ -142,6 +148,11 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
     const handleSQLExport = (actionType) => {
         if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
             alert("No data to export or zip codes not loaded.");
+            return;
+        }
+
+        if (zipLoading) {
+            alert("Zipcode database is still loading. Please wait 5 seconds and try again.");
             return;
         }
 

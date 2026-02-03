@@ -5,6 +5,7 @@ import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
 import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
 import { NWSService } from '../../services/nwsService';
+import * as turf from '@turf/turf';
 
 const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
@@ -45,14 +46,7 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
         }
     };
 
-    const parseHeatIndex = (description) => {
-        const tempRegex = /heat index.*?(\d+)/i;
-        const match = description.match(tempRegex);
-        if (match) {
-            return parseInt(match[1], 10);
-        }
-        return 0;
-    };
+    // parseHeatIndex removed as it was unused
 
     const getProducts = () => {
         return [
@@ -64,6 +58,11 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
     const handleExport = () => {
         if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
             alert("No data to export or zip codes not loaded.");
+            return;
+        }
+
+        if (zipLoading) {
+            alert("Zipcode database is still loading. Please wait 5 seconds and try again.");
             return;
         }
 
@@ -151,6 +150,11 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
     const handleSQLExport = (actionType) => {
         if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
             alert("No data to export or zip codes not loaded.");
+            return;
+        }
+
+        if (zipLoading) {
+            alert("Zipcode database is still loading. Please wait 5 seconds and try again.");
             return;
         }
 
