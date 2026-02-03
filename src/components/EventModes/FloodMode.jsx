@@ -139,6 +139,81 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
         }, 100);
     };
 
+    const handleExportSQL = () => {
+        if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
+            alert("No data to export or zip codes not loaded.");
+            return;
+        }
+
+        setStatus("Generating SQL...");
+
+        setTimeout(() => {
+            const selectedZips = new Set();
+
+            alerts.features.forEach(alert => {
+                const hasGeometry = !!alert.geometry;
+                const areaDesc = (alert.properties.areaDesc || "").toUpperCase();
+                
+                let bbox = null;
+                if (hasGeometry) {
+                    bbox = turf.bbox(alert);
+                }
+
+                zipCodes.forEach(z => {
+                    let isMatch = false;
+
+                    // 1. Geometric Match
+                    if (hasGeometry && bbox) {
+                        if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
+                            if (turf.booleanPointInPolygon([z.lng, z.lat], alert)) {
+                                isMatch = true;
+                            }
+                        }
+                    }
+
+                    // 2. Text Match Fallback
+                    if (!isMatch && !hasGeometry) {
+                         if (z.county && z.state) {
+                             const searchStr = `${z.county}, ${z.state}`.toUpperCase();
+                             if (areaDesc.includes(searchStr)) {
+                                 isMatch = true;
+                             }
+                         }
+                    }
+
+                    if (isMatch) {
+                        selectedZips.add(z.zip);
+                    }
+                });
+            });
+
+            if (selectedZips.size === 0) {
+                alert("No matching targets found.");
+                setStatus("Ready");
+                return;
+            }
+
+            const zipList = Array.from(selectedZips);
+            const zipString = zipList.map(z => `'${z}'`).join(", ");
+
+            const sqlContent = `Select id, Name, CUST_ID__C
+From SFDC_DS.SFDC_ACCOUNT_OBJECT
+Where RECORDTYPE_NAME__C = 'Site'
+AND Zip__c IN (${zipString})`;
+
+            const blob = new Blob([sqlContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'flood_targets.sql');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
+        }, 100);
+    };
+
     return (
         <DashboardLayout
             sidebarContent={
@@ -179,6 +254,9 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
                     <div className="map-interaction-container">
                         <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
                             Refresh Data
+                        </button>
+                        <button className="export-btn" onClick={handleExportSQL} disabled={loading} style={{ marginLeft: '10px', backgroundColor: '#4a90e2' }}>
+                            Export SQL
                         </button>
                     </div>
 
