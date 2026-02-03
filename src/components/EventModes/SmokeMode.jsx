@@ -224,6 +224,14 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
                         >
                             {zipLoading ? 'Loading DB...' : (loading ? 'Processing...' : 'Export Selected Zips')}
                         </button>
+                        <button
+                            className="export-btn"
+                            onClick={handleExportSQL}
+                            disabled={loading || zipLoading}
+                            style={{ width: '100%', marginTop: '10px', backgroundColor: '#4a90e2' }}
+                        >
+                            Export SQL
+                        </button>
                     </div>
 
                     <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#e9ecef', borderRadius: '6px' }}>
