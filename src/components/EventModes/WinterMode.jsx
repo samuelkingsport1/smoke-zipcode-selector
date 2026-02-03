@@ -301,6 +301,9 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
                         <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
                             Refresh Data
                         </button>
+                        <button className="export-btn" onClick={handleExportSQL} disabled={loading || zipLoading} style={{ marginLeft: '10px', backgroundColor: '#4a90e2' }}>
+                            Export SQL
+                        </button>
                     </div>
 
                     <MapComponent>
