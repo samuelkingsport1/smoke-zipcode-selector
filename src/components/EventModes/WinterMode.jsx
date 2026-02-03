@@ -206,6 +206,112 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
         }, 100);
     };
 
+    const handleSQLExport = (actionType) => {
+        if (!alerts || !alerts.features.length) {
+            alert("No data to export.");
+            return;
+        }
+
+        if (zipLoading) {
+            alert("Zipcode database is still loading. Please wait 5 seconds and try again.");
+            return;
+        }
+
+        // 1. Identify Target Alerts
+        const targetAlerts = (selectedIds.size > 0)
+            ? alerts.features.filter(f => selectedIds.has(f.properties.id))
+            : alerts.features;
+
+        if (targetAlerts.length === 0) {
+            alert("No targets selected.");
+            return;
+        }
+
+        setStatus("Generating SQL...");
+
+        setTimeout(() => {
+            const selectedZips = new Set();
+
+            targetAlerts.forEach(alertFeature => {
+                const hasGeometry = !!alertFeature.geometry;
+                const areaDesc = (alertFeature.properties.areaDesc || "").toUpperCase();
+
+                let bbox = null;
+                if (hasGeometry) {
+                    bbox = turf.bbox(alertFeature);
+                }
+
+                zipCodes.forEach(z => {
+                    let isMatch = false;
+                    // 1. Geometric Match
+                    if (hasGeometry && bbox) {
+                        if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
+                            if (turf.booleanPointInPolygon([z.lng, z.lat], alertFeature)) {
+                                isMatch = true;
+                            }
+                        }
+                    }
+                    // 2. Text Match Fallback
+                    if (!isMatch && !hasGeometry) {
+                         if (z.county && z.state) {
+                             const searchStr = `${z.county}, ${z.state}`.toUpperCase();
+                             if (areaDesc.includes(searchStr)) {
+                                 isMatch = true;
+                             }
+                         }
+                    }
+
+                    if (isMatch) {
+                        selectedZips.add(z.zip); // Store zip string only
+                    }
+                });
+            });
+
+            if (selectedZips.size === 0) {
+                alert("No target zip codes found.");
+                setStatus("Ready");
+                return;
+            }
+
+            const zipList = Array.from(selectedZips);
+            const zipString = zipList.map(z => `'${z}'`).join(", ");
+
+            if (actionType === 'COUNT') {
+                const countSql = `Select count(id)
+From SFDC_DS.SFDC_ACCOUNT_OBJECT
+Where RECORDTYPE_NAME__C = 'Site'
+AND Zip__c IN (${zipString})`;
+
+                navigator.clipboard.writeText(countSql).then(() => {
+                    alert("Count SQL copied to clipboard!");
+                    setStatus("Count SQL copied.");
+                });
+            } else {
+                const sqlContent = `Select id, Name, CUST_ID__C
+From SFDC_DS.SFDC_ACCOUNT_OBJECT
+Where RECORDTYPE_NAME__C = 'Site'
+AND Zip__c IN (${zipString})`;
+
+                if (actionType === 'COPY') {
+                    navigator.clipboard.writeText(sqlContent).then(() => {
+                        alert("SQL Query copied to clipboard!");
+                        setStatus("SQL Query copied.");
+                    });
+                } else {
+                    const blob = new Blob([sqlContent], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', 'winter_targets.sql');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
+                }
+            }
+        }, 100);
+    };
+
     const formatTarget = (f) => ({
         event_id: f.properties.id,
         event_type: "WINTER_STORM",
@@ -301,8 +407,31 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
                         <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
                             Refresh Data
                         </button>
-                        <button className="export-btn" onClick={handleExportSQL} disabled={loading || zipLoading} style={{ marginLeft: '10px', backgroundColor: '#4a90e2' }}>
-                            Export SQL
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginTop: '10px' }}>
+                            <button
+                                className="export-btn"
+                                onClick={() => handleSQLExport('DOWNLOAD')}
+                                disabled={loading || zipLoading}
+                                style={{ backgroundColor: '#4a90e2', fontSize: '11px' }}
+                            >
+                                Download SQL
+                            </button>
+                            <button
+                                className="export-btn"
+                                onClick={() => handleSQLExport('COPY')}
+                                disabled={loading || zipLoading}
+                                style={{ backgroundColor: '#6c757d', fontSize: '11px' }}
+                            >
+                                Copy SQL
+                            </button>
+                        </div>
+                        <button
+                            className="export-btn"
+                            onClick={() => handleSQLExport('COUNT')}
+                            disabled={loading || zipLoading}
+                            style={{ width: '100%', marginTop: '5px', backgroundColor: '#28a745', fontSize: '11px' }}
+                        >
+                            Copy Count SQL
                         </button>
                     </div>
 

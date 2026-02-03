@@ -139,7 +139,7 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
         }, 100);
     };
 
-    const handleExportSQL = () => {
+    const handleSQLExport = (actionType) => {
         if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
             alert("No data to export or zip codes not loaded.");
             return;
@@ -196,21 +196,39 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
             const zipList = Array.from(selectedZips);
             const zipString = zipList.map(z => `'${z}'`).join(", ");
 
-            const sqlContent = `Select id, Name, CUST_ID__C
+            if (actionType === 'COUNT') {
+                const countSql = `Select count(id)
 From SFDC_DS.SFDC_ACCOUNT_OBJECT
 Where RECORDTYPE_NAME__C = 'Site'
 AND Zip__c IN (${zipString})`;
 
-            const blob = new Blob([sqlContent], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'flood_targets.sql');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+                navigator.clipboard.writeText(countSql).then(() => {
+                    alert("Count SQL copied to clipboard!");
+                    setStatus("Count SQL copied.");
+                });
+            } else {
+                const sqlContent = `Select id, Name, CUST_ID__C
+From SFDC_DS.SFDC_ACCOUNT_OBJECT
+Where RECORDTYPE_NAME__C = 'Site'
+AND Zip__c IN (${zipString})`;
 
-            setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
+                if (actionType === 'COPY') {
+                    navigator.clipboard.writeText(sqlContent).then(() => {
+                        alert("SQL Query copied to clipboard!");
+                        setStatus("SQL Query copied.");
+                    });
+                } else {
+                    const blob = new Blob([sqlContent], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', 'flood_targets.sql');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
+                }
+            }
         }, 100);
     };
 
@@ -255,8 +273,31 @@ AND Zip__c IN (${zipString})`;
                         <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
                             Refresh Data
                         </button>
-                        <button className="export-btn" onClick={handleExportSQL} disabled={loading} style={{ marginLeft: '10px', backgroundColor: '#4a90e2' }}>
-                            Export SQL
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginTop: '10px' }}>
+                            <button
+                                className="export-btn"
+                                onClick={() => handleSQLExport('DOWNLOAD')}
+                                disabled={loading}
+                                style={{ backgroundColor: '#4a90e2', fontSize: '11px' }}
+                            >
+                                Download SQL
+                            </button>
+                            <button
+                                className="export-btn"
+                                onClick={() => handleSQLExport('COPY')}
+                                disabled={loading}
+                                style={{ backgroundColor: '#6c757d', fontSize: '11px' }}
+                            >
+                                Copy SQL
+                            </button>
+                        </div>
+                        <button
+                            className="export-btn"
+                            onClick={() => handleSQLExport('COUNT')}
+                            disabled={loading}
+                            style={{ width: '100%', marginTop: '5px', backgroundColor: '#28a745', fontSize: '11px' }}
+                        >
+                            Copy Count SQL
                         </button>
                     </div>
 
