@@ -4,7 +4,7 @@ import SmokeMode from './components/EventModes/SmokeMode';
 import WinterMode from './components/EventModes/WinterMode';
 import HeatMode from './components/EventModes/HeatMode';
 import FloodMode from './components/EventModes/FloodMode';
-// import RespiratoryMode from './components/EventModes/RespiratoryMode';
+import RespiratoryMode from './components/EventModes/RespiratoryMode';
 import TechnicalMode from './components/EventModes/TechnicalMode';
 import PlaceholderMode from './components/EventModes/PlaceholderMode';
 import Papa from 'papaparse';
@@ -64,8 +64,7 @@ const App = () => {
       case 'flood':
         return <FloodMode zipCodes={zipCodes} zipLoading={zipLoading} />;
       case 'flu': 
-        // return <RespiratoryMode zipCodes={zipCodes} zipLoading={zipLoading} />;
-        return <PlaceholderMode title="Respiratory Mode (Maintenance)" />;
+        return <RespiratoryMode zipCodes={zipCodes} zipLoading={zipLoading} />;
       case 'technical':
         return <TechnicalMode />;
       default:

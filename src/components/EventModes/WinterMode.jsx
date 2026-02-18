@@ -3,22 +3,52 @@ import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
+import ExportActionButtons from '../Dashboard/ExportActionButtons';
+import SQLExportControls from '../Dashboard/SQLExportControls';
 import CountyLayer from '../MapOverlays/CountyLayer';
-import Papa from 'papaparse'; // For CSV Export if needed, or we construct manually
+import Papa from 'papaparse'; 
 import * as turf from '@turf/turf';
 
 import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
 import { NWSService } from '../../services/nwsService';
+import { formatWeatherAlert } from '../../services/weatherFormatter';
 
 const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("Initializing Winter Mode...");
     const [date, setDate] = useState(""); // Empty = Live
+    
+    // NAICS Filter State
+    const [selectedNAICS, setSelectedNAICS] = useState(new Set());
+
+    // SQL Export Config State
+    const [exportConfig, setExportConfig] = useState({
+        recordType: 'Site',
+        fields: {
+            'Last_Order_Date__C': true,
+            'Total_LY_Sales__C': true,
+            'Total_ty_Sales_to_Date__c': true
+        },
+        filters: {
+            activeStatus: true,
+            lastActivityMonths: '',
+            lastOrderMonths: '',
+            minTotalSales: ''
+        },
+        sortBy: ''
+    });
 
     useEffect(() => {
         fetchAlerts();
     }, [date]);
+
+    useEffect(() => {
+        window._debug_alerts = alerts;
+        window._debug_zipCodes = zipCodes;
+        window._debug_turf = turf;
+        console.log("Debug vars exposed on window");
+    }, [alerts, zipCodes]);
 
     const fetchAlerts = async () => {
         setLoading(true);
@@ -60,7 +90,7 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
 
     // getProducts removed as it was unused
 
-    const handleExport = () => {
+    const handleExport = async (mode = 'DOWNLOAD') => {
         if (!alerts || !alerts.features.length) {
             alert("No data to export.");
             return;
@@ -81,90 +111,171 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
             return;
         }
 
+        setStatus("Checking alert geometries...");
+
+        // 2. Fetch missing Zone Geometries (New Step)
+        const enrichedAlerts = await Promise.all(targetAlerts.map(async (feature) => {
+            if (feature.geometry) return feature;
+            const zones = feature.properties.affectedZones || [];
+            if (zones.length === 0) return feature;
+
+            console.log(`[WinterMode] Fetching geometries for ${zones.length} zones...`);
+            setStatus(`Fetching geometries for ${zones.length} affected zones...`);
+            
+            const zoneGeoms = [];
+            for (const zoneUrl of zones) {
+                const geom = await NWSService.fetchZoneGeometry(zoneUrl);
+                if (geom) zoneGeoms.push(geom);
+            }
+
+            if (zoneGeoms.length === 0) return feature;
+
+            return {
+                ...feature,
+                _fetchedGeometries: zoneGeoms
+            };
+        }));
+
         setStatus("Calculating affected zip codes...");
 
-        // 2. Perform Spatial Intersection (Polygon vs Zip Points)
-        // This is strictly client-side. Turf is fast enough for <100 polygons vs 40k points.
+        // 3. Perform Spatial Intersection
         setTimeout(() => {
-            const selectedZips = new Set();
-            // processedCount removed as it was unused
+            // Map<ZipCode, {zipData, alertData}> to ensure unique zips but keep context
+            const selectedZips = new Map();
+            
+            console.log(`[WinterMode] Exporting... ZipCodes: ${zipCodes.length}, Targets: ${enrichedAlerts.length}`);
 
-            targetAlerts.forEach(alertFeature => {
-                const hasGeometry = !!alertFeature.geometry;
+            let bboxCount = 0;
+            let polyCount = 0;
+            let textCount = 0;
+
+            enrichedAlerts.forEach(alertFeature => {
+                const hasInlineGeometry = !!alertFeature.geometry;
+                const fetchedGeometries = alertFeature._fetchedGeometries || [];
+                const hasGeometry = hasInlineGeometry || fetchedGeometries.length > 0;
+                
                 const areaDesc = (alertFeature.properties.areaDesc || "").toUpperCase();
 
-                // Pre-calc bbox if geometry exists
-                let bbox = null;
-                if (hasGeometry) {
-                    bbox = turf.bbox(alertFeature);
-                }
+                // Pre-calc bboxes
+                const activePolygons = [];
+                if (hasInlineGeometry) activePolygons.push(alertFeature.geometry);
+                if (fetchedGeometries.length > 0) activePolygons.push(...fetchedGeometries);
+
+                const bboxes = activePolygons.map(geom => {
+                    try { return turf.bbox(geom); } catch (e) { return null; }
+                }).filter(b => b !== null);
 
                 zipCodes.forEach(z => {
                     let isMatch = false;
 
-                    // 1. Geometric Match (High Precision)
-                    if (hasGeometry && bbox) {
-                        // Fast BBox filter
-                        if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
-                            if (turf.booleanPointInPolygon([z.lng, z.lat], alertFeature)) {
-                                isMatch = true;
+                    // A. Geometric Match
+                    if (hasGeometry) {
+                        for (let i = 0; i < bboxes.length; i++) {
+                            const bbox = bboxes[i];
+                            const poly = activePolygons[i];
+                            
+                            if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
+                                bboxCount++;
+                                if (turf.booleanPointInPolygon([z.lng, z.lat], poly)) {
+                                    isMatch = true;
+                                    polyCount++;
+                                    break; 
+                                }
                             }
                         }
                     }
 
-                    // 2. Text Match Fallback (If geometry missing or to catch edge cases)
-                    // If no geometry, we MUST use text match.
-                    // Risk: "Clay" matches "Clayton". 
-                    // Mitigation: Check for county + state if possible, or just county strict check if we can.
-                    // For now: Simple inclusion check, but verify State if available in Zip
-                    if (!isMatch && !hasGeometry) {
-                        // NWS areaDesc usually: "Cook, IL; Lake, IL"
-                        // Zip: county="COOK", state="IL"
-                        if (z.county && z.state) {
-                            const searchStr = `${z.county}, ${z.state}`.toUpperCase(); // "COOK, IL"
-                            if (areaDesc.includes(searchStr)) {
-                                isMatch = true;
-                            }
-                            // Fallback: Just County Name if "State" is not in areaDesc (unlikely for NWS, but possible)
-                            // else if (areaDesc.includes(z.county.toUpperCase())) { ... }
+                    // B. Text Match Fallback
+                    if (!isMatch) {
+                        if (z.usps_zip_county_name && z.state) {
+                             const county = z.usps_zip_county_name || z.county;
+                             if(county) {
+                                 const searchStr = `${county}, ${z.state}`.toUpperCase();
+                                 if (areaDesc.includes(searchStr)) {
+                                     isMatch = true;
+                                     textCount++;
+                                 }
+                             }
                         }
                     }
 
                     if (isMatch) {
-                        selectedZips.add(JSON.stringify(z));
+                        // Only add if not already present (First alert wins for attribution)
+                        if (!selectedZips.has(z.zip)) {
+                            selectedZips.set(z.zip, {
+                                zipData: z,
+                                alertData: alertFeature.properties,
+                                alertId: alertFeature.id
+                            });
+                        }
                     }
                 });
             });
 
             if (selectedZips.size === 0) {
+                setStatus(`Debug: BBoxPass=${bboxCount}, PolyPass=${polyCount}, TextPass=${textCount}, Targets=${enrichedAlerts.length}`);
                 alert("No zip codes found within the selected alert areas.");
-                setStatus("No zip codes found.");
                 return;
             }
 
-            // 3. Generate CSV
-            const csvData = Array.from(selectedZips).map(json => {
-                const z = JSON.parse(json);
+            // 4. Generate CSV
+            const csvData = Array.from(selectedZips.values()).map(item => {
+                const z = item.zipData;
+                const a = item.alertData;
+                
+                // Format the alert using our new service
+                // Use a mock object structure if 'a' is just properties, or pass full object if available
+                // formatWeatherAlert expects { properties: a } if 'a' is just properties
+                const formatted = formatWeatherAlert({ properties: a });
+                const links = formatted.searchLinks;
+
                 return {
                     ZIP: z.zip,
                     CITY: z.city,
-                    COUNTY: z.county || "N/A", // Ensure county is populated if available
+                    COUNTY: z.usps_zip_county_name || z.county || "N/A",
                     STATE: z.state,
-                    // We could add Alert ID if one zip maps to multiple, but usually users want a distinct mailing list
+                    EVENT_TYPE: a.event || "N/A",
+                    DETAILS: (a.headline || a.description || a.areaDesc || "").substring(0, 500).replace(/(\r\n|\n|\r)/gm, " "), 
+                    URL: item.alertId || "N/A",
+                    // New Columns
+                    NEWS_SEARCH: links.newsSearch,
+                    LOCAL_NEWS: links.localNews,
+                    CONDITIONS_URL: links.currentConditions,
+                    IMPACT_URL: links.impactReports,
+                    SAFETY_URL: links.safetyInfo
                 };
             });
 
             const csv = Papa.unparse(csvData);
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'winter_storm_zipcodes.csv');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
 
-            setStatus(`Exported ${selectedZips.size} unique zip codes from ${targetAlerts.length} alerts.`);
+            if (mode === 'COPY') {
+                navigator.clipboard.writeText(csv).then(() => {
+                    alert(`Copied ${selectedZips.size} zip codes to clipboard!`);
+                    setStatus(`Copied ${selectedZips.size} zip codes from ${enrichedAlerts.length} alerts.`);
+                }).catch(err => {
+                    console.error("Copy failed", err);
+                    alert("Failed to copy to clipboard. See console.");
+                });
+            } else {
+                // DOWNLOAD
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                const filename = `winter_storm_zipcodes_${new Date().toISOString().slice(0,10)}.csv`;
+                link.setAttribute('download', filename);
+                link.download = filename; 
+                document.body.appendChild(link);
+                link.click();
+                
+                // Increased delay for reliability
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }, 2000);
+
+                setStatus(`Exported ${selectedZips.size} unique zip codes from ${enrichedAlerts.length} alerts.`);
+            }
         }, 100);
     };
 
@@ -239,20 +350,56 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
             const zipString = zipList.map(z => `'${z}'`).join(", ");
 
             if (actionType === 'COUNT') {
-                const countSql = `Select count(id)
-From SFDC_DS.SFDC_ACCOUNT_OBJECT
-Where RECORDTYPE_NAME__C = 'Site'
-AND Zip__c IN (${zipString})`;
+                // Construct Filter Clauses
+                const { filters, recordType } = exportConfig;
+                let filterClauses = "";
+                if (filters.activeStatus) filterClauses += "\nAND c.Status__c = 'Active'";
+                if (filters.lastActivityMonths) filterClauses += `\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
+                if (filters.lastOrderMonths) filterClauses += `\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
+                if (filters.minTotalSales) filterClauses += `\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
+
+                const countSql = `Select count(s.id)
+From SFDC_DS.SFDC_ACCOUNT_OBJECT s
+${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
+Where s.RECORDTYPE_NAME__C = '${recordType}'
+AND s.Zip__c IN (${zipString})${
+    selectedNAICS.size > 0 
+    ? `\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
+    : ""
+}${filterClauses}`;
 
                 navigator.clipboard.writeText(countSql).then(() => {
                     alert("Count SQL copied to clipboard!");
                     setStatus("Count SQL copied.");
                 });
             } else {
-                const sqlContent = `Select id, Name, CUST_ID__C
-From SFDC_DS.SFDC_ACCOUNT_OBJECT
-Where RECORDTYPE_NAME__C = 'Site'
-AND Zip__c IN (${zipString})`;
+                 // Dynamic Field Selection
+                 const { filters, recordType, fields } = exportConfig;
+                 const baseFields = ["id", "Name", "CUST_ID__C"];
+                 const additionalFields = Object.keys(fields).filter(key => fields[key]);
+                 const allFields = [...baseFields, ...additionalFields].join(", ");
+
+                 // Sorting
+                 const orderByClause = exportConfig.sortBy ? `\nORDER BY s.${exportConfig.sortBy} DESC NULLS LAST` : "";
+
+                 // Filter Clauses (Same as COUNT)
+                 let filterClauses = "";
+                 if (filters.activeStatus) filterClauses += "\nAND c.Status__c = 'Active'";
+                 if (filters.lastActivityMonths) filterClauses += `\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
+                 if (filters.lastOrderMonths) filterClauses += `\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
+                 if (filters.minTotalSales) filterClauses += `\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
+
+                const naicsFields = selectedNAICS.size > 0 ? ", org.NAICS___c, org.NAICS_Description__c" : "";
+                
+                const sqlContent = `Select ${allFields.map(f => `s.${f}`).join(", ")}${naicsFields}
+From SFDC_DS.SFDC_ACCOUNT_OBJECT s
+${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
+Where s.RECORDTYPE_NAME__C = '${recordType}'
+AND s.Zip__c IN (${zipString})${
+    selectedNAICS.size > 0 
+    ? `\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
+    : ""
+}${filterClauses}${orderByClause}`;
 
                 if (actionType === 'COPY') {
                     navigator.clipboard.writeText(sqlContent).then(() => {
@@ -316,9 +463,10 @@ AND Zip__c IN (${zipString})`;
 
     return (
         <DashboardLayout
-            sidebarContent={
+            leftPanel={
                 <>
                     <div className="sidebar-header" style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        <h3>Winter Mode</h3>
                         <div style={{ marginBottom: '10px' }}>
                             <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
                                 <strong>Date Range</strong>
@@ -339,81 +487,68 @@ AND Zip__c IN (${zipString})`;
                         </div>
                     </div>
 
-                    <AlertList
-                        alerts={alerts ? alerts.features : []}
-                        title={date ? `Archive: ${date}` : "Winter Warnings"}
-                        onExport={handleExport}
-                        onAlertClick={handleAlertClick}
-                        onAlertToggle={handleAlertToggle}
-                        selectedIds={selectedIds}
-                        focusedId={focusedId}
-                    />
-                    <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
-                        {status}
+                    <div className="sidebar-content">
+                         <div className="sidebar-input-group">
+                            <label className="sidebar-label">Controls</label>
+                            <button className="export-btn" onClick={fetchAlerts} disabled={loading} style={{ width: '100%', marginBottom: '10px' }}>
+                                Refresh Data
+                            </button>
+                        </div>
+                        
+                        <div className="sidebar-input-group">
+                            <label className="sidebar-label">Export Data</label>
+                            <div style={{ marginTop: '10px' }}>
+                                <SQLExportControls 
+                                    config={exportConfig}
+                                    setConfig={setExportConfig}
+                                    selectedNAICS={selectedNAICS}
+                                    setSelectedNAICS={setSelectedNAICS}
+                                />
+                            </div>
+
+                            <ExportActionButtons 
+                                onExport={handleSQLExport}
+                                loading={loading}
+                                zipLoading={zipLoading}
+                            />
+                            
+                        </div>
+                        
+                        <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
+                            {status}
+                        </div>
                     </div>
                 </>
             }
             mapContent={
-                <>
-                    <div className="map-interaction-container">
-                        <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
-                            Refresh Data
-                        </button>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginTop: '10px' }}>
-                            <button
-                                className="export-btn"
-                                onClick={() => handleSQLExport('DOWNLOAD')}
-                                disabled={loading || zipLoading}
-                                style={{ backgroundColor: '#4a90e2', fontSize: '11px' }}
-                            >
-                                Download SQL
-                            </button>
-                            <button
-                                className="export-btn"
-                                onClick={() => handleSQLExport('COPY')}
-                                disabled={loading || zipLoading}
-                                style={{ backgroundColor: '#6c757d', fontSize: '11px' }}
-                            >
-                                Copy SQL
-                            </button>
-                        </div>
-                        <button
-                            className="export-btn"
-                            onClick={() => handleSQLExport('COUNT')}
-                            disabled={loading || zipLoading}
-                            style={{ width: '100%', marginTop: '5px', backgroundColor: '#28a745', fontSize: '11px' }}
-                        >
-                            Copy Count SQL
-                        </button>
-                    </div>
-
-                    <MapComponent>
-                        {/* 
-                            Use WMS Layer for visual rendering because API often returns null geometry for zones.
-                            Layer 0 = Current Warnings
-                            Filter: prod_type needs to match "Winter Storm Warning" etc.
-                        */}
-                        <WMSTileLayer
-                            url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
-                            layers="0"
-                            format="image/png"
-                            transparent={true}
-                            opacity={0.6}
-                            // ArcGIS WMS specific filter
-                            layerDefs={'{"0":"prod_type=\'Winter Storm Warning\' OR prod_type=\'Winter Weather Advisory\'"}'}
-                        />
-
-                        {/* 
-                             County Overlay for specific, sharp highlighting of affect counties
-                        */}
-                        <CountyLayer
-                            activeFips={activeFips}
-                            focusedFips={focusedFips}
-                            selectedFips={selectedFips}
-                            style={{ color: '#00BFFF', weight: 1, fillOpacity: 0.2 }}
-                        />
-                    </MapComponent>
-                </>
+                <MapComponent>
+                    <WMSTileLayer
+                        url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
+                        layers="0"
+                        format="image/png"
+                        transparent={true}
+                        opacity={0.6}
+                        layerDefs={'{"0":"prod_type=\'Winter Storm Warning\' OR prod_type=\'Winter Weather Advisory\'"}'}
+                    />
+                    <CountyLayer
+                        activeFips={activeFips}
+                        focusedFips={focusedFips}
+                        selectedFips={selectedFips}
+                        style={{ color: '#00BFFF', weight: 1, fillOpacity: 0.2 }}
+                    />
+                </MapComponent>
+            }
+            rightPanel={
+                <AlertList
+                    alerts={alerts ? alerts.features : []}
+                    title={date ? `Archive: ${date}` : "Winter Warnings"}
+                    onExport={() => handleExport('DOWNLOAD')}
+                    onCopy={() => handleExport('COPY')}
+                    onAlertClick={handleAlertClick}
+                    onAlertToggle={handleAlertToggle}
+                    selectedIds={selectedIds}
+                    focusedId={focusedId}
+                />
             }
         />
     );

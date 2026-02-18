@@ -46,38 +46,61 @@ html,
 
 
 /* Dashboard Layout */
+/* Dashboard Layout - 3 Pane Grid */
 .dashboard-layout {
-  display: flex;
+  display: grid;
+  grid-template-columns: 320px 1fr 350px;
+  grid-template-rows: 1fr; /* Explicitly define row to take available height */
   height: 100%;
-  width: 100%;
+  width: 100vw;
+  overflow: hidden;
+  background-color: #f8f9fa;
+}
+
+/* If right panel is missing, it will just leave empty space or we can make it auto-adjust via React logic 
+   or simpler: use flexbox if we want dynamic. But Grid is more robust for "panels".
+   Actually, let's use a class modifier if right panel is missing, OR just let map take rest?
+   React-side: if rightPanel is null, we can change inline style or class. 
+   But for now, the CSS assumes 3 columns.
+   Better approach for dynamic:
+*/
+.dashboard-layout:has(.right-panel) {
+  grid-template-columns: 320px 1fr 350px;
+}
+
+.dashboard-layout:not(:has(.right-panel)) {
+  grid-template-columns: 320px 1fr;
+}
+
+.left-panel {
+  background-color: #fff;
+  border-right: 1px solid #dee2e6;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 500;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+}
+
+.center-panel {
   position: relative;
   overflow: hidden;
-  /* Ensure no body scroll */
-  /* If parent has flex, this should fill it */
-  flex: 1;
-  min-height: 0;
+  /* Map container */
 }
 
-.map-section {
-  flex: 1;
-  height: 100%;
-  position: relative;
-  /* Remove any padding if it exists to ensure full fill */
-}
-
-.sidebar-section {
-  width: 350px;
-  min-width: 350px;
-  background-color: #f8f9fa;
+.right-panel {
+  background-color: #fff;
   border-left: 1px solid #dee2e6;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  z-index: 500;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-  /* Prevent sidebar itself from scroll, let children scroll */
+  z-index: 500;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.05);
 }
+
+
+
+
 
 /* Sidebar Header/Footer Containers */
 .sidebar-header,

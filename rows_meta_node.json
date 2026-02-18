@@ -1,0 +1,102 @@
+[
+  {
+    "position": 0,
+    "fieldName": ":sid",
+    "name": "sid"
+  },
+  {
+    "position": 0,
+    "fieldName": ":id",
+    "name": "id"
+  },
+  {
+    "position": 0,
+    "fieldName": ":position",
+    "name": "position"
+  },
+  {
+    "position": 0,
+    "fieldName": ":created_at",
+    "name": "created_at"
+  },
+  {
+    "position": 0,
+    "fieldName": ":created_meta",
+    "name": "created_meta"
+  },
+  {
+    "position": 0,
+    "fieldName": ":updated_at",
+    "name": "updated_at"
+  },
+  {
+    "position": 0,
+    "fieldName": ":updated_meta",
+    "name": "updated_meta"
+  },
+  {
+    "position": 0,
+    "fieldName": ":meta",
+    "name": "meta"
+  },
+  {
+    "position": 1,
+    "fieldName": "week_ending_date",
+    "name": "week_ending_date"
+  },
+  {
+    "position": 2,
+    "fieldName": "state",
+    "name": "state"
+  },
+  {
+    "position": 3,
+    "fieldName": "avg_adm_all_covid_confirmed",
+    "name": "avg_adm_all_covid_confirmed"
+  },
+  {
+    "position": 4,
+    "fieldName": "pct_chg_avg_adm_all_covid",
+    "name": "pct_chg_avg_adm_all_covid_confirmed_per_100k"
+  },
+  {
+    "position": 5,
+    "fieldName": "total_adm_all_covid_confirmed",
+    "name": "total_adm_all_covid_confirmed_past_7days"
+  },
+  {
+    "position": 6,
+    "fieldName": "total_adm_all_covid_confirmed_1",
+    "name": "total_adm_all_covid_confirmed_past_7days_per_100k"
+  },
+  {
+    "position": 7,
+    "fieldName": "sum_adm_all_covid_confirmed",
+    "name": "sum_adm_all_covid_confirmed"
+  },
+  {
+    "position": 8,
+    "fieldName": "avg_total_patients",
+    "name": "avg_total_patients_hospitalized_covid_confirmed"
+  },
+  {
+    "position": 9,
+    "fieldName": "avg_percent_inpatient_beds",
+    "name": "avg_percent_inpatient_beds_occupied_covid_confirmed"
+  },
+  {
+    "position": 10,
+    "fieldName": "abs_chg_avg_percent_inpatient",
+    "name": "abs_chg_avg_percent_inpatient_beds_occupied_covid_confirmed"
+  },
+  {
+    "position": 11,
+    "fieldName": "avg_percent_staff_icu_beds",
+    "name": "avg_percent_staff_icu_beds_covid"
+  },
+  {
+    "position": 12,
+    "fieldName": "abs_chg_avg_percent_staff",
+    "name": "abs_chg_avg_percent_staff_icu_beds_covid"
+  }
+]

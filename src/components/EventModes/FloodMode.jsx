@@ -3,21 +3,40 @@ import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
-import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
+import ExportActionButtons from '../Dashboard/ExportActionButtons';
+import SQLExportControls from '../Dashboard/SQLExportControls';
+import NAICSFilter from '../Dashboard/NAICSFilter';
+import { US_STATES } from '../../utils/constants';
 import { NWSService } from '../../services/nwsService';
 import * as turf from '@turf/turf';
 
 const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
-    const [alerts, setAlerts] = useState(null);
+    const [alerts, setAlerts] = useState({ type: "FeatureCollection", features: [] });
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("Initializing Flood Mode...");
     const [date, setDate] = useState(""); // Empty = Live
+    
+    // NAICS Filter State
+    const [selectedNAICS, setSelectedNAICS] = useState(new Set());
 
-    useEffect(() => {
-        fetchAlerts();
-    }, [date]);
+    // SQL Export Config State
+    const [exportConfig, setExportConfig] = useState({
+        recordType: 'Site',
+        fields: {
+            'Last_Order_Date__C': true,
+            'Total_LY_Sales__C': true,
+            'Total_ty_Sales_to_Date__c': true
+        },
+        filters: {
+            activeStatus: true,
+            lastActivityMonths: '',
+            lastOrderMonths: '',
+            minTotalSales: ''
+        },
+        sortBy: ''
+    });
 
-    const fetchAlerts = async () => {
+    const fetchAlerts = React.useCallback(async () => {
         setLoading(true);
         setStatus(date ? `Searching Archive for ${date}...` : "Fetching NWS Flood Warnings...");
 
@@ -40,11 +59,15 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
         } catch (err) {
             console.error("Failed to fetch alerts", err);
             setStatus(`Error: ${err.message}`);
-            setAlerts(null);
+            setAlerts({ type: "FeatureCollection", features: [] });
         } finally {
             setLoading(false);
         }
-    };
+    }, [date]);
+
+    useEffect(() => {
+        fetchAlerts();
+    }, [fetchAlerts]);
 
     const getProducts = () => {
         return [
@@ -53,8 +76,11 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
         ];
     };
 
-    const handleExport = () => {
-        if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
+    // Standardized Export Logic with Zone Fetching
+    const handleExport = async (targetAlertsParam) => {
+        const alertsToProcess = targetAlertsParam || alerts.features;
+
+        if (!alertsToProcess || alertsToProcess.length === 0 || !zipCodes || zipCodes.length === 0) {
             alert("No data to export or zip codes not loaded.");
             return;
         }
@@ -64,20 +90,59 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
             return;
         }
 
-        setStatus("Processing export...");
+        setStatus("Fetching standard zone geometries...");
+        setLoading(true);
+
+        // 1. Enrich Alerts with Geometry if missing (Zone Fetching)
+        const enrichedAlerts = [];
+        const zoneCache = new Map();
+
+        // Identify alerts needing geometry
+        for (const alert of alertsToProcess) {
+            if (!alert.geometry && alert.properties.affectedZones && alert.properties.affectedZones.length > 0) {
+                // It's a zone-based alert
+                const zoneUrl = alert.properties.affectedZones[0]; 
+                
+                try {
+                    let geometry = zoneCache.get(zoneUrl);
+                    if (!geometry) {
+                        geometry = await nwsService.fetchZoneGeometry(zoneUrl);
+                        if (geometry) zoneCache.set(zoneUrl, geometry);
+                    }
+                    
+                    if (geometry) {
+                        enrichedAlerts.push({
+                            ...alert,
+                            geometry: geometry // Polyfill the geometry
+                        });
+                        continue; // Done with this alert
+                    }
+                } catch (error) {
+                    console.warn(`Failed to fetch zone geometry for ${zoneUrl}`, error);
+                }
+            }
+            // Keep original if it had geometry or fetch failed
+            enrichedAlerts.push(alert);
+        }
+
+        setStatus("Processing spatial match...");
 
         setTimeout(() => {
             const targets = [];
             const uniqueEntries = new Set();
 
-            alerts.features.forEach(alert => {
+            enrichedAlerts.forEach(alert => {
                 const hasGeometry = !!alert.geometry;
                 const areaDesc = (alert.properties.areaDesc || "").toUpperCase();
                 const eventName = alert.properties.event || "Flood Warning";
 
                 let bbox = null;
                 if (hasGeometry) {
-                    bbox = turf.bbox(alert);
+                    try {
+                        bbox = turf.bbox(alert);
+                    } catch (error) {
+                        console.warn("Invalid geometry for bbox", error);
+                    }
                 }
 
                 zipCodes.forEach(z => {
@@ -93,7 +158,7 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
                     }
 
                     // 2. Text Match Fallback
-                    if (!isMatch && !hasGeometry) {
+                    if (!isMatch) {
                         if (z.county && z.state) {
                             const searchStr = `${z.county}, ${z.state}`.toUpperCase();
                             if (areaDesc.includes(searchStr)) {
@@ -123,6 +188,7 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
             if (targets.length === 0) {
                 alert("No matching targets found (checked geometry and county text).");
                 setStatus("Ready");
+                setLoading(false);
                 return;
             }
 
@@ -142,187 +208,260 @@ const FloodMode = ({ zipCodes = [], zipLoading = false }) => {
             document.body.removeChild(link);
 
             setStatus(`Exported ${targets.length} targets.`);
+            setLoading(false);
         }, 100);
     };
 
-    const handleSQLExport = (actionType) => {
+    const handleCopy = () => {
+         console.log("Copy not fully implemented for full spatial check yet.");
+    };
+
+    const handleSQLExport = async (actionType) => {
         if (!alerts || !alerts.features || !zipCodes || zipCodes.length === 0) {
-            alert("No data to export or zip codes not loaded.");
+            alert("No data to export.");
             return;
         }
-
-        if (zipLoading) {
-            alert("Zipcode database is still loading. Please wait 5 seconds and try again.");
-            return;
-        }
-
+        
         setStatus("Generating SQL...");
-
-        setTimeout(() => {
+        setLoading(true);
+        
+         setTimeout(() => {
             const selectedZips = new Set();
-
+            // Simplified check (no zone fetching for SQL preview to be fast)
             alerts.features.forEach(alert => {
-                const hasGeometry = !!alert.geometry;
-                const areaDesc = (alert.properties.areaDesc || "").toUpperCase();
-                
-                let bbox = null;
-                if (hasGeometry) {
-                    bbox = turf.bbox(alert);
-                }
+                 const hasGeometry = !!alert.geometry;
+                 const areaDesc = (alert.properties.areaDesc || "").toUpperCase();
+                 let bbox = hasGeometry ? turf.bbox(alert) : null;
 
-                zipCodes.forEach(z => {
+                 zipCodes.forEach(z => {
                     let isMatch = false;
-
-                    // 1. Geometric Match
                     if (hasGeometry && bbox) {
                         if (z.lng >= bbox[0] && z.lng <= bbox[2] && z.lat >= bbox[1] && z.lat <= bbox[3]) {
-                            if (turf.booleanPointInPolygon([z.lng, z.lat], alert)) {
-                                isMatch = true;
-                            }
+                            if (turf.booleanPointInPolygon([z.lng, z.lat], alert)) isMatch = true;
                         }
                     }
-
-                    // 2. Text Match Fallback
-                    if (!isMatch && !hasGeometry) {
-                         if (z.county && z.state) {
-                             const searchStr = `${z.county}, ${z.state}`.toUpperCase();
-                             if (areaDesc.includes(searchStr)) {
-                                 isMatch = true;
-                             }
-                         }
+                    if (!isMatch) {
+                        if (z.county && z.state && areaDesc.includes(`${z.county}, ${z.state}`.toUpperCase())) isMatch = true;
                     }
-
-                    if (isMatch) {
-                        selectedZips.add(z.zip);
-                    }
-                });
+                    if (isMatch) selectedZips.add(z.zip);
+                 });
             });
-
+            
             if (selectedZips.size === 0) {
-                alert("No matching targets found.");
+                alert("No targets found.");
                 setStatus("Ready");
+                setLoading(false);
                 return;
             }
-
+            
             const zipList = Array.from(selectedZips);
             const zipString = zipList.map(z => `'${z}'`).join(", ");
+            const { filters, recordType, fields, sortBy } = exportConfig;
+            
+             // Construct Filter Clauses
+             let filterClauses = "";
+             if (filters.activeStatus) filterClauses += "\\nAND c.Status__c = 'Active'";
+             if (filters.lastActivityMonths) filterClauses += `\\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
+             if (filters.lastOrderMonths) filterClauses += `\\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
+             if (filters.minTotalSales) filterClauses += `\\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
+             
+             const naicsFields = selectedNAICS.size > 0 ? ", org.NAICS___c, org.NAICS_Description__c" : "";
+             const orderByClause = sortBy ? `\\nORDER BY s.${sortBy} DESC NULLS LAST` : "";
 
-            if (actionType === 'COUNT') {
-                const countSql = `Select count(id)
-From SFDC_DS.SFDC_ACCOUNT_OBJECT
-Where RECORDTYPE_NAME__C = 'Site'
-AND Zip__c IN (${zipString})`;
-
-                navigator.clipboard.writeText(countSql).then(() => {
-                    alert("Count SQL copied to clipboard!");
-                    setStatus("Count SQL copied.");
-                });
-            } else {
-                const sqlContent = `Select id, Name, CUST_ID__C
-From SFDC_DS.SFDC_ACCOUNT_OBJECT
-Where RECORDTYPE_NAME__C = 'Site'
-AND Zip__c IN (${zipString})`;
-
-                if (actionType === 'COPY') {
-                    navigator.clipboard.writeText(sqlContent).then(() => {
-                        alert("SQL Query copied to clipboard!");
-                        setStatus("SQL Query copied.");
-                    });
-                } else {
-                    const blob = new Blob([sqlContent], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', 'flood_targets.sql');
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
-                }
-            }
-        }, 100);
+             let sqlContent = "";
+             
+             if (actionType === 'COUNT') {
+                sqlContent = `Select count(s.id)
+From SFDC_DS.SFDC_ACCOUNT_OBJECT s
+${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id\\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
+Where s.RECORDTYPE_NAME__C = '${recordType}'
+AND s.Zip__c IN (${zipString})${
+    selectedNAICS.size > 0 
+    ? `\\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
+    : ""
+}${filterClauses}`;
+             } else {
+                 const baseFields = ["id", "Name", "CUST_ID__C"];
+                 const additionalFields = Object.keys(fields).filter(key => fields[key]);
+                 const allFields = [...baseFields, ...additionalFields].join(", ");
+                 
+                 sqlContent = `Select ${allFields.map(f => `s.${f}`).join(", ")}${naicsFields}
+From SFDC_DS.SFDC_ACCOUNT_OBJECT s
+${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id\\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
+Where s.RECORDTYPE_NAME__C = '${recordType}'
+AND s.Zip__c IN (${zipString})${
+    selectedNAICS.size > 0 
+    ? `\\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
+    : ""
+}${filterClauses}${orderByClause}`;
+             }
+             
+             if (actionType === 'COPY' || actionType === 'COUNT') {
+                 navigator.clipboard.writeText(sqlContent).then(() => {
+                     alert(`${actionType} SQL copied to clipboard!`);
+                     setStatus("SQL Copied.");
+                 });
+             } else {
+                 const blob = new Blob([sqlContent], { type: 'text/plain' });
+                 const url = URL.createObjectURL(blob);
+                 const link = document.createElement('a');
+                 link.href = url;
+                 link.setAttribute('download', 'flood_targets.sql');
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+                 setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
+             }
+             
+             setLoading(false);
+         }, 100);
     };
 
     return (
         <DashboardLayout
-            sidebarContent={
+            leftPanel={
                 <>
-                    <div className="sidebar-header" style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
-                        <div style={{ marginBottom: '10px' }}>
-                            <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                                <strong>Date Range</strong>
-                            </label>
-                            <input
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '8px',
-                                    borderRadius: '4px',
-                                    border: '1px solid #ddd'
-                                }}
-                            />
-                            {!date && <small style={{ color: '#00cc00', fontSize: '10px' }}>● Live Data</small>}
-                            {date && <button onClick={() => setDate("")} style={{ marginTop: '5px', fontSize: '10px', cursor: 'pointer', background: 'none', border: 'none', color: '#0066cc', textDecoration: 'underline' }}>Return to Live</button>}
+                    <div className="sidebar-header" style={{ 
+                        padding: '16px', 
+                        background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Blue water theme
+                        color: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>💧</span> Flood Mode
+                        </h3>
+                         <div className="sidebar-input-group">
+                            <label className="sidebar-label" style={{ color: 'rgba(255,255,255,0.9)' }}>Archive Date</label>
+                            <div style={{ display: 'flex', gap: '5px' }}>
+                                <input
+                                    type="date"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    style={{ 
+                                        padding: '8px', 
+                                        borderRadius: '6px', 
+                                        border: '1px solid rgba(255,255,255,0.2)', 
+                                        width: '100%',
+                                        backgroundColor: 'rgba(255,255,255,0.1)',
+                                        color: 'white'
+                                    }}
+                                />
+                                {date && (
+                                    <button 
+                                        onClick={() => setDate("")}
+                                        style={{
+                                            padding: '8px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            background: 'rgba(255,255,255,0.2)',
+                                            color: 'white',
+                                            cursor: 'pointer'
+                                        }}
+                                        title="Return to Live Data"
+                                    >
+                                        ↺
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    <AlertList
-                        alerts={alerts ? alerts.features : []}
-                        title={date ? `Archive: ${date}` : "Flood Warnings"}
-                        onExport={handleExport}
-                    />
-                    <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
-                        {status}
+                    <div className="sidebar-content" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div className="sidebar-section">
+                            <label className="sidebar-label" style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                                DATA CONTROLS
+                            </label>
+                            <button 
+                                className="export-btn" 
+                                onClick={() => fetchAlerts()} 
+                                disabled={loading} 
+                                style={{ 
+                                    width: '100%', 
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    background: '#fff',
+                                    border: '1px solid #ddd',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                ↺ Refresh Feed
+                            </button>
+                        </div>
+
+                        <div className="sidebar-section">
+                             <label className="sidebar-label" style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                                EXPORT CONFIG
+                            </label>
+                            <SQLExportControls 
+                                config={exportConfig}
+                                setConfig={setExportConfig}
+                                selectedNAICS={selectedNAICS}
+                                setSelectedNAICS={setSelectedNAICS}
+                            />
+                            <ExportActionButtons 
+                                onExport={handleSQLExport}
+                                loading={loading}
+                                zipLoading={zipLoading}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="sidebar-footer" style={{ padding: '12px', borderTop: '1px solid #eee', background: '#f8f9fa' }}>
+                        <small style={{ color: '#6c757d' }}>{status}</small>
                     </div>
                 </>
             }
             mapContent={
-                <>
-                    <div className="map-interaction-container">
-                        <button className="export-btn" onClick={fetchAlerts} disabled={loading}>
-                            Refresh Data
-                        </button>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginTop: '10px' }}>
-                            <button
-                                className="export-btn"
-                                onClick={() => handleSQLExport('DOWNLOAD')}
-                                disabled={loading}
-                                style={{ backgroundColor: '#4a90e2', fontSize: '11px' }}
-                            >
-                                Download SQL
-                            </button>
-                            <button
-                                className="export-btn"
-                                onClick={() => handleSQLExport('COPY')}
-                                disabled={loading}
-                                style={{ backgroundColor: '#6c757d', fontSize: '11px' }}
-                            >
-                                Copy SQL
-                            </button>
-                        </div>
-                        <button
-                            className="export-btn"
-                            onClick={() => handleSQLExport('COUNT')}
-                            disabled={loading}
-                            style={{ width: '100%', marginTop: '5px', backgroundColor: '#28a745', fontSize: '11px' }}
-                        >
-                            Copy Count SQL
-                        </button>
-                    </div>
-
-                    <MapComponent>
-                        <WMSTileLayer
-                            url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
-                            layers="0"
-                            format="image/png"
-                            transparent={true}
-                            opacity={0.6}
-                            layerDefs={'{"0":"prod_type=\'Flood Warning\' OR prod_type=\'Flash Flood Warning\' OR prod_type=\'Coastal Flood Warning\'"}'}
+                 <MapComponent>
+                    {/* WMS Layer for Flood Warnings */}
+                    <WMSTileLayer
+                        url="https://mapservices.weather.noaa.gov/arcgis/rest/services/WWA/watch_warn_adv/MapServer/exts/WMSServer"
+                        layers="0"
+                        format="image/png"
+                        transparent={true}
+                        opacity={0.5}
+                        layerDefs={'{"0":"prod_type IN (\'Flood Warning\', \'Flash Flood Warning\', \'Coastal Flood Warning\')"}'}
+                    />
+                    
+                    {/* Render GeoJSON on top if available (for precise hover/click) */}
+                    {alerts.features.length < 500 && (
+                        <GeoJSON 
+                            key={`flood-geo-${alerts.features.length}`}
+                            data={alerts}
+                            style={{
+                                color: '#00BFFF',
+                                weight: 1,
+                                opacity: 0.6,
+                                fillOpacity: 0.1
+                            }}
+                            onEachFeature={(feature, layer) => {
+                                layer.bindTooltip(`${feature.properties.event}: ${feature.properties.areaDesc}`);
+                            }}
                         />
-                    </MapComponent>
-                </>
+                    )}
+                </MapComponent>
+            }
+            rightPanel={
+               <>
+                    <div className="sidebar-header" style={{ 
+                        padding: '16px', 
+                        background: '#f8f9fa', 
+                        borderBottom: '1px solid #eee' 
+                    }}>
+                        <h3 style={{ margin: 0, fontSize: '16px', color: '#333' }}>
+                             Active Flood Alerts
+                        </h3>
+                    </div>
+                    <div className="sidebar-content" style={{ padding: '0', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                         <AlertList
+                            alerts={alerts.features}
+                            title=""
+                            onExport={handleExport}
+                            onCopy={handleCopy}
+                            loading={loading}
+                        />
+                    </div>
+               </>
             }
         />
     );

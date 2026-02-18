@@ -5,7 +5,8 @@ const tabs = [
     { id: 'winter', label: '❄️ Winter Storm', color: '#00BFFF' },
     { id: 'heat', label: '☀️ Heatwave', color: '#FF4500' },
     { id: 'flood', label: '🌊 Flood / Hurricane', color: '#0000FF' },
-    { id: 'flu', label: '🦠 Flu Season', color: '#32CD32' },
+    { id: 'flu', label: '🦠 Respiratory Illness', color: '#32CD32' },
+    { id: 'technical', label: '🛠️ Tech / Architecture', color: '#6610f2' },
 ];
 
 const TabNav = ({ activeTab, onTabChange }) => {

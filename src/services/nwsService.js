@@ -64,9 +64,29 @@ export const NWSService = {
 
             return { type: "FeatureCollection", features: features };
 
-        } catch (error) {
+    } catch (error) {
             console.error("[NWSService] Error:", error);
             throw error;
+        }
+    },
+
+    /**
+     * Fetch geometry for a specific NWS Zone.
+     * @param {string} zoneUrl - Full URL (e.g. https://api.weather.gov/zones/forecast/COZ005)
+     * @returns {Promise<Object|null>} GeoJSON Geometry or null
+     */
+    async fetchZoneGeometry(zoneUrl) {
+        if (!zoneUrl) return null;
+        try {
+            const response = await fetch(zoneUrl, {
+                headers: { 'User-Agent': '(myweatherapp.com, contact@myweatherapp.com)' }
+            });
+            if (!response.ok) return null;
+            const data = await response.json();
+            return data.geometry;
+        } catch (e) {
+            console.warn(`[NWSService] Failed to fetch zone: ${zoneUrl}`, e);
+            return null;
         }
     }
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
 import * as turf from '@turf/turf';
 import L from 'leaflet';
@@ -6,22 +6,31 @@ import MapComponent from '../MapContainer';
 import SmokeAQITooltip from './SmokeAQITooltip';
 import { WMSTileLayer } from 'react-leaflet';
 import DashboardLayout from '../Dashboard/DashboardLayout';
+import ExportActionButtons from '../Dashboard/ExportActionButtons';
 import SQLExportControls from '../Dashboard/SQLExportControls';
+import { US_STATES } from '../../utils/constants';
 
 const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
     const [loading, setLoading] = useState(false); // Local processing state (e.g. Export calculation)
     const [status, setStatus] = useState("Initializing...");
     // Default to yesterday's date as it is safer for satellite data availability
-    const [date, setDate] = useState(new Date(Date.now() - 86400000).toISOString().split('T')[0]);
+    const [date, setDate] = useState(() => new Date(Date.now() - 86400000).toISOString().split('T')[0]);
     console.log("Active Date:", date);
 
     // SQL Export Config State
-    const [sqlConfig, setSqlConfig] = useState({
+    // SQL Export Config State
+    const [exportConfig, setExportConfig] = useState({
         recordType: 'Site',
         fields: {
             'Last_Order_Date__C': true,
             'Total_LY_Sales__C': true,
             'Total_ty_Sales_to_Date__c': true
+        },
+        filters: {
+            activeStatus: true,
+            lastActivityMonths: '',
+            lastOrderMonths: '',
+            minTotalSales: ''
         },
         sortBy: ''
     });
@@ -29,6 +38,9 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
     // State Selection Mode States
     const [stateMode, setStateMode] = useState(false);
     const [selectedStates, setSelectedStates] = useState(new Set());
+    
+    // NAICS Filter State
+    const [selectedNAICS, setSelectedNAICS] = useState(new Set());
 
     const drawnItemsRef = useRef({});
 
@@ -102,8 +114,10 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
 
         setStatus("Calculating intersecting zip codes...");
 
-        setTimeout(() => {
-            // Use setTimeout to allow UI to update with "Calculating..."
+        // setTimeout removed to fix clipboard/user-gesture issues.
+        // If calculation is slow, we should use a Web Worker, but for <50k items it's fine.
+        
+        try {
             const selectedZips = new Set();
 
             // For each shape
@@ -184,7 +198,10 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
             document.body.removeChild(link);
 
             setStatus(`Exported ${selectedZips.size} zipcodes.`);
-        }, 100);
+        } catch (e) {
+            console.error(e);
+            setStatus("Export failed.");
+        }
     };
 
     const handleSQLExport = (actionType) => {
@@ -202,7 +219,8 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
 
         setStatus("Generating SQL...");
 
-        setTimeout(() => {
+        // setTimeout removed to fix clipboard API "transient user activation" requirement
+        try {
             const selectedZips = new Set();
 
             // 1. Check drawn shapes
@@ -250,10 +268,23 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
             const zipString = zipList.map(z => `'${z}'`).join(", ");
 
             if (actionType === 'COUNT') {
-                const countSql = `Select count(id)
-From SFDC_DS.SFDC_ACCOUNT_OBJECT
-Where RECORDTYPE_NAME__C = '${sqlConfig.recordType}'
-AND Zip__c IN (${zipString})`;
+                // Construct Filter Clauses
+                const { filters, recordType } = exportConfig;
+                let filterClauses = "";
+                if (filters.activeStatus) filterClauses += "\nAND c.Status__c = 'Active'";
+                if (filters.lastActivityMonths) filterClauses += `\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
+                if (filters.lastOrderMonths) filterClauses += `\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
+                if (filters.minTotalSales) filterClauses += `\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
+
+                const countSql = `Select count(s.id)
+From SFDC_DS.SFDC_ACCOUNT_OBJECT s
+${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
+Where s.RECORDTYPE_NAME__C = '${recordType}'
+AND s.Zip__c IN (${zipString})${
+    selectedNAICS.size > 0 
+    ? `\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
+    : ""
+}${filterClauses}`;
 
                 navigator.clipboard.writeText(countSql).then(() => {
                     alert("Count SQL copied to clipboard!");
@@ -262,18 +293,33 @@ AND Zip__c IN (${zipString})`;
 
             } else {
                  // Dynamic Field Selection
+                 const { filters, recordType, fields } = exportConfig;
                  const baseFields = ["id", "Name", "CUST_ID__C"];
-                 const additionalFields = Object.keys(sqlConfig.fields).filter(key => sqlConfig.fields[key]);
+                 const additionalFields = Object.keys(fields).filter(key => fields[key]);
                  const allFields = [...baseFields, ...additionalFields].join(", ");
 
                  // Sorting
-                 const orderByClause = sqlConfig.sortBy ? `\nORDER BY ${sqlConfig.sortBy} DESC NULLS LAST` : "";
+                 const orderByClause = exportConfig.sortBy ? `\nORDER BY s.${exportConfig.sortBy} DESC NULLS LAST` : "";
+
+                 // Filter Clauses (Same as COUNT)
+                let filterClauses = "";
+                if (filters.activeStatus) filterClauses += "\nAND c.Status__c = 'Active'";
+                if (filters.lastActivityMonths) filterClauses += `\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
+                if (filters.lastOrderMonths) filterClauses += `\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
+                if (filters.minTotalSales) filterClauses += `\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
 
                 // Standard Select Query
-                const sqlContent = `Select ${allFields}
-From SFDC_DS.SFDC_ACCOUNT_OBJECT
-Where RECORDTYPE_NAME__C = '${sqlConfig.recordType}'
-AND Zip__c IN (${zipString})${orderByClause}`;
+                const naicsFields = selectedNAICS.size > 0 ? ", org.NAICS___c, org.NAICS_Description__c" : "";
+                
+                const sqlContent = `Select ${allFields.map(f => `s.${f}`).join(", ")}${naicsFields}
+From SFDC_DS.SFDC_ACCOUNT_OBJECT s
+${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
+Where s.RECORDTYPE_NAME__C = '${recordType}'
+AND s.Zip__c IN (${zipString})${
+    selectedNAICS.size > 0 
+    ? `\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
+    : ""
+}${filterClauses}${orderByClause}`;
 
                 if (actionType === 'COPY') {
                     navigator.clipboard.writeText(sqlContent).then(() => {
@@ -293,102 +339,133 @@ AND Zip__c IN (${zipString})${orderByClause}`;
                     setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
                 }
             }
-        }, 100);
+        } catch (e) {
+            console.error(e);
+            alert("Export failed: " + e.message);
+            setStatus("Export failed.");
+        }
     };
 
     return (
-        <div className="dashboard-layout">
-            <div className="sidebar-section">
-                <div className="sidebar-header">
-                    <h3>Smoke / AQI</h3>
-                    <div className="sidebar-input-group">
-                        <label className="sidebar-label">Data Date</label>
-                        <input
-                            type="date"
-                            value={date}
-                            max={new Date().toISOString().split('T')[0]}
-                            onChange={(e) => setDate(e.target.value)}
-                            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', width: '100%' }}
-                        />
-                    </div>
-                </div>
-
-                <div className="sidebar-content">
-                    <div className="sidebar-input-group">
-                        <label className="sidebar-label">Controls</label>
-                        <button
-                            onClick={() => setStateMode(!stateMode)}
-                            style={{
-                                padding: '10px',
-                                borderRadius: '4px',
-                                border: '1px solid #ced4da',
-                                backgroundColor: stateMode ? '#0d6efd' : 'white',
-                                color: stateMode ? 'white' : '#495057',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                width: '100%',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            {stateMode ? "State Selection: ON" : "Enable State Selection"}
-                        </button>
+        <DashboardLayout
+            leftPanel={
+                <>
+                    <div className="sidebar-header" style={{ 
+                        padding: '16px', 
+                        background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)', 
+                        color: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '20px' }}>💨</span> Smoke / AQI
+                        </h3>
+                        <div className="sidebar-input-group">
+                            <label className="sidebar-label" style={{ color: 'rgba(255,255,255,0.9)' }}>Data Date</label>
+                            <input
+                                type="date"
+                                value={date}
+                                max={new Date().toISOString().split('T')[0]}
+                                onChange={(e) => setDate(e.target.value)}
+                                style={{ 
+                                    padding: '8px', 
+                                    borderRadius: '6px', 
+                                    border: '1px solid rgba(255,255,255,0.2)', 
+                                    width: '100%',
+                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                    color: 'white'
+                                }}
+                            />
+                        </div>
                     </div>
 
-                    <div className="sidebar-input-group">
-                        <label className="sidebar-label">Export Data</label>
-                        <button
-                            className="export-btn"
-                            onClick={handleExport}
-                            disabled={loading || zipLoading}
-                            style={{ width: '100%' }}
-                        >
-                            {zipLoading ? 'Loading DB...' : (loading ? 'Processing...' : 'Export Selected Zips')}
-                        </button>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginTop: '10px' }}>
+                    <div className="sidebar-content" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div className="sidebar-section">
+                            <label className="sidebar-label" style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                                SELECTION TOOLS
+                            </label>
                             <button
-                                className="export-btn"
-                                onClick={() => handleSQLExport('DOWNLOAD')}
-                                disabled={loading || zipLoading}
-                                style={{ backgroundColor: '#4a90e2', fontSize: '11px' }}
+                                onClick={() => setStateMode(!stateMode)}
+                                style={{
+                                    padding: '12px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #ced4da',
+                                    backgroundColor: stateMode ? '#0d6efd' : 'white',
+                                    color: stateMode ? 'white' : '#495057',
+                                    cursor: 'pointer',
+                                    fontWeight: '600',
+                                    width: '100%',
+                                    transition: 'all 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                }}
                             >
-                                Download SQL
-                            </button>
-                            <button
-                                className="export-btn"
-                                onClick={() => handleSQLExport('COPY')}
-                                disabled={loading || zipLoading}
-                                style={{ backgroundColor: '#6c757d', fontSize: '11px' }}
-                            >
-                                Copy SQL
+                                {stateMode ? "✓ State Selection Active" : "Enable State Selection"}
                             </button>
                         </div>
-                        <button
-                            className="export-btn"
-                            onClick={() => handleSQLExport('COUNT')}
-                            disabled={loading || zipLoading}
-                            style={{ width: '100%', marginTop: '5px', backgroundColor: '#28a745', fontSize: '11px' }}
-                        >
-                            Copy Count SQL
-                        </button>
+
+                        <div className="sidebar-section">
+                            <label className="sidebar-label" style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                                EXPORT DATA
+                            </label>
+                            
+                            {/* CSV Export */}
+                            <div style={{ marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#555', marginBottom: '8px' }}>
+                                    1. Export Zip Code List (CSV)
+                                </div>
+                                <button
+                                    className="export-btn"
+                                    onClick={handleExport}
+                                    disabled={loading || zipLoading}
+                                    style={{ 
+                                        width: '100%', 
+                                        padding: '10px',
+                                        backgroundColor: '#28a745', 
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    {zipLoading ? 'Loading DB...' : (loading ? 'Processing...' : 'Download CSV')}
+                                </button>
+                            </div>
+
+                            {/* SQL Export */}
+                            <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#555', marginBottom: '8px' }}>
+                                    2. Generate SQL Query
+                                </div>
+                                
+                                <SQLExportControls 
+                                    config={exportConfig}
+                                    setConfig={setExportConfig}
+                                    selectedNAICS={selectedNAICS}
+                                    setSelectedNAICS={setSelectedNAICS}
+                                />
+                                
+                                <div style={{ marginTop: '10px' }}>
+                                    <ExportActionButtons 
+                                        onExport={handleSQLExport}
+                                        loading={loading}
+                                        zipLoading={zipLoading}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
-                    <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#e9ecef', borderRadius: '6px' }}>
-                        <p style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: 'bold' }}>Instructions:</p>
-                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', color: '#666' }}>
-                            <li>Use the Shape Tools (top right of map) to draw a box or polygon.</li>
-                            <li>Or toggle "State Selection" to click states.</li>
-                            <li>Click "Export" to download CSV of zip codes in those areas.</li>
-                        </ul>
+                    <div className="sidebar-footer" style={{ padding: '12px', borderTop: '1px solid #eee', background: '#f8f9fa' }}>
+                        <small style={{ color: '#6c757d' }}>{status}</small>
                     </div>
-                </div>
-
-                <div className="sidebar-footer">
-                    <small style={{ color: '#6c757d' }}>{status}</small>
-                </div>
-            </div>
-
-            <div className="map-section">
-                {/* Map Interaction Container removed as controls are now in sidebar */}
+                </>
+            }
+            mapContent={
                 <MapComponent
                     onCreated={handleCreated}
                     onDeleted={handleDeleted}
@@ -411,8 +488,39 @@ AND Zip__c IN (${zipString})${orderByClause}`;
                     />
                     <SmokeAQITooltip date={date} />
                 </MapComponent>
-            </div>
-        </div>
+            }
+            rightPanel={
+                <>
+                    <div className="sidebar-header" style={{ 
+                        padding: '16px', 
+                        background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)', 
+                        color: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+                        <h3 style={{ margin: 0, fontSize: '16px' }}>Legend & Info</h3>
+                    </div>
+                    <div className="sidebar-content" style={{ padding: '16px' }}>
+                        <div style={{ 
+                            padding: '16px', 
+                            backgroundColor: 'white', 
+                            borderRadius: '8px', 
+                            border: '1px solid #e9ecef',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                        }}>
+                            <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#2c3e50', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>ℹ️</span> How to Use
+                            </h4>
+                            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#555', lineHeight: '1.6' }}>
+                                <li>Use the <strong>Shape Tools</strong> (top right of map) to draw a box or polygon around smoke areas.</li>
+                                <li style={{ marginTop: '8px' }}>Toggle <strong>State Selection</strong> to quickly select entire states.</li>
+                                <li style={{ marginTop: '8px' }}>Use the <strong>Export Data</strong> section to download Zip Codes (CSV) or generate a SQL query.</li>
+                            </ul>
+                        </div>
+                        {/* Placeholder for future detailed stats or Legend component */}
+                    </div>
+                </>
+            }
+        />
     );
 };
 

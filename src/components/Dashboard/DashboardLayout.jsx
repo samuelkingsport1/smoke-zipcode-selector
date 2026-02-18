@@ -1,14 +1,19 @@
 import React from 'react';
 
-const DashboardLayout = ({ sidebarContent, mapContent }) => {
+const DashboardLayout = ({ leftPanel, mapContent, rightPanel }) => {
     return (
         <div className="dashboard-layout">
-            <div className="sidebar-section">
-                {sidebarContent}
+            <div className="left-panel">
+                {leftPanel}
             </div>
-            <div className="map-section">
+            <div className="center-panel">
                 {mapContent}
             </div>
+            {rightPanel && (
+                <div className="right-panel">
+                    {rightPanel}
+                </div>
+            )}
         </div>
     );
 };

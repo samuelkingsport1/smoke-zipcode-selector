@@ -39,7 +39,8 @@ const CountyLayer = ({ activeFips = [], activeStateNames = [], style = { color: 
                 color: 'rgba(0,0,0,0.1)', // Very faint border for context, or 0 for invisible
                 weight: 0.5,
                 opacity: 0.2,
-                fillOpacity: 0
+                fillOpacity: 0,
+                interactive: false // Disable events for invisible counties to prevent ghost tooltips
             };
         }
 
@@ -49,13 +50,15 @@ const CountyLayer = ({ activeFips = [], activeStateNames = [], style = { color: 
             fillColor: style.color || '#ff0000',
             fillOpacity: style.fillOpacity || 0.5,
             weight: 1,
-            opacity: 1
+            opacity: 1,
+            interactive: true
         };
     };
 
     const onEachFeature = (feature, layer) => {
         // Tooltip for basic info
-        layer.bindTooltip(`${feature.properties.name} County`, { sticky: true, direction: 'top' });
+        // Removed sticky: true to prevent "stuck" artifacts. defaulting to hover.
+        layer.bindTooltip(`${feature.properties.name} County`, { direction: 'top', opacity: 0.9 });
     };
 
     if (!geoJsonData) return null;
