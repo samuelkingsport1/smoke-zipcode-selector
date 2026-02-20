@@ -11,11 +11,51 @@ import { NWSService } from '../../services/nwsService';
 import { generateSQL } from '../../utils/sqlGenerator';
 import * as turf from '@turf/turf';
 
+const REGULATED_STATES = {
+    "California": {
+        appliesTo: "Outdoor + Indoor (separate rules)",
+        triggers: "Outdoor: 80°F (shade access), 95°F (high heat)\nIndoor: 82°F (control plan), 87°F (high heat)",
+        actions: "Water (1 qt/hr), shade, cool-down rest, training, written prevention plan, observation during high heat, emergency response procedures"
+    },
+    "Washington": {
+        appliesTo: "Outdoor",
+        triggers: "80°F (basic), 90°F (enhanced), 100°F (additional controls)",
+        actions: "Drinking water, paid cool-down rest breaks, acclimatization, supervisor monitoring at higher temps, emergency planning"
+    },
+    "Oregon": {
+        appliesTo: "Indoor + Outdoor",
+        triggers: "80°F (heat plan + water/rest), 90°F (mandatory rest schedule)",
+        actions: "Heat illness prevention plan, shade/cooling area, 10-min rest every 2 hrs at 90°F+, training, acclimatization protocol"
+    },
+    "Minnesota": {
+        appliesTo: "Indoor only",
+        triggers: "80–86°F (controls required), 87°F+ (mandatory controls)",
+        actions: "Engineering controls or administrative controls, ventilation, rest breaks, exposure monitoring"
+    },
+    "Colorado": {
+        appliesTo: "Agriculture only",
+        triggers: "80°F (basic protections), 95°F (high heat protections)",
+        actions: "Drinking water, shade, rest breaks, increased monitoring at high heat, written procedures"
+    },
+    "Maryland": {
+        appliesTo: "Indoor + Outdoor",
+        triggers: "80°F (prevention plan required), 90°F (high heat procedures)",
+        actions: "Heat illness prevention plan, water access, rest breaks, acclimatization, training, supervisor monitoring"
+    },
+    "Nevada": {
+        appliesTo: "Indoor + Outdoor",
+        triggers: "90°F (controls required), 105°F (high heat)",
+        actions: "Written job hazard analysis, water, rest breaks, cooling areas, monitoring at 105°F+, emergency response procedures"
+    }
+};
+
 const RegulationsModal = ({ onClose }) => (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 2000 }}>
-        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', width: '90%' }}>
-            <button className="modal-close" onClick={onClose}>&times;</button>
-            <h3 style={{ marginBottom: '15px' }}>📋 State Heatwave Regulations Reference</h3>
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 3000, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#fff', padding: '24px', borderRadius: '12px', maxWidth: '900px', width: '90%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+            <button className="modal-close" onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#666' }}>&times;</button>
+            <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📋</span> State Heatwave Regulations Reference
+            </h3>
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
@@ -27,48 +67,14 @@ const RegulationsModal = ({ onClose }) => (
                         </tr>
                     </thead>
                     <tbody>
-                        <tr style={{ borderBottom: '1px solid #dee2e6' }}>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>California</strong></td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Outdoor + Indoor (separate rules)</td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Outdoor:</strong> 80°F (shade access), 95°F (high heat)<br/><br/><strong>Indoor:</strong> 82°F (control plan), 87°F (high heat)</td>
-                            <td style={{ padding: '12px', verticalAlign: 'top' }}>Water (1 qt/hr), shade, cool-down rest, training, written prevention plan, observation during high heat, emergency response procedures</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid #dee2e6' }}>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Washington</strong></td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Outdoor</td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80°F (basic), 90°F (enhanced), 100°F (additional controls)</td>
-                            <td style={{ padding: '12px', verticalAlign: 'top' }}>Drinking water, paid cool-down rest breaks, acclimatization, supervisor monitoring at higher temps, emergency planning</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid #dee2e6' }}>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Oregon</strong></td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Indoor + Outdoor</td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80°F (heat plan + water/rest), 90°F (mandatory rest schedule)</td>
-                            <td style={{ padding: '12px', verticalAlign: 'top' }}>Heat illness prevention plan, shade/cooling area, 10-min rest every 2 hrs at 90°F+, training, acclimatization protocol</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid #dee2e6' }}>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Minnesota</strong></td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Indoor only</td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80–86°F (controls required), 87°F+ (mandatory controls)</td>
-                            <td style={{ padding: '12px', verticalAlign: 'top' }}>Engineering controls or administrative controls, ventilation, rest breaks, exposure monitoring</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid #dee2e6' }}>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Colorado</strong></td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Agriculture only</td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80°F (basic protections), 95°F (high heat protections)</td>
-                            <td style={{ padding: '12px', verticalAlign: 'top' }}>Drinking water, shade, rest breaks, increased monitoring at high heat, written procedures</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid #dee2e6' }}>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Maryland</strong></td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Indoor + Outdoor</td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80°F (prevention plan required), 90°F (high heat procedures)</td>
-                            <td style={{ padding: '12px', verticalAlign: 'top' }}>Heat illness prevention plan, water access, rest breaks, acclimatization, training, supervisor monitoring</td>
-                        </tr>
-                        <tr>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Nevada</strong></td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Indoor + Outdoor</td>
-                            <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>90°F (controls required), 105°F (high heat)</td>
-                            <td style={{ padding: '12px', verticalAlign: 'top' }}>Written job hazard analysis, water, rest breaks, cooling areas, monitoring at 105°F+, emergency response procedures</td>
-                        </tr>
+                        {Object.entries(REGULATED_STATES).map(([state, data]) => (
+                            <tr key={state} style={{ borderBottom: '1px solid #dee2e6' }}>
+                                <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>{state}</strong></td>
+                                <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>{data.appliesTo}</td>
+                                <td style={{ padding: '12px', borderRight: '1px solid #eee', verticalAlign: 'top' }} dangerouslySetInnerHTML={{ __html: data.triggers.replace(/\n/g, '<br/>') }}></td>
+                                <td style={{ padding: '12px', verticalAlign: 'top' }}>{data.actions}</td>
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             </div>
@@ -83,6 +89,10 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
     const [date, setDate] = useState(""); // Empty = Live
     const [showRegulations, setShowRegulations] = useState(false);
     
+    // Map Interaction State
+    const [usGeoJSON, setUsGeoJSON] = useState(null);
+    const [selectedRegState, setSelectedRegState] = useState(null);
+
     // NAICS Filter State
     const [selectedNAICS, setSelectedNAICS] = useState(new Set());
 
@@ -136,6 +146,14 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
     useEffect(() => {
         fetchAlerts();
     }, [fetchAlerts]);
+
+    // Load GeoJSON once for state highlighting
+    useEffect(() => {
+        fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
+            .then(res => res.json())
+            .then(data => setUsGeoJSON(data))
+            .catch(err => console.error("Failed to load US states", err));
+    }, []);
 
     const getProducts = () => {
         return [
@@ -351,6 +369,55 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
          }, 100);
     };
 
+    // GeoJSON Styling for Regulated States
+    const styleState = (feature) => {
+        const stateName = feature.properties.name;
+        const isRegulated = !!REGULATED_STATES[stateName];
+        const isSelected = selectedRegState === stateName;
+
+        return {
+            fillColor: isSelected ? '#ff5e62' : (isRegulated ? '#ffa07a' : 'transparent'),
+            weight: isSelected ? 3 : (isRegulated ? 2 : 1),
+            opacity: isRegulated ? 1 : 0.2,
+            color: isSelected ? '#333' : (isRegulated ? '#ff5e62' : '#aaa'),
+            fillOpacity: isSelected ? 0.7 : (isRegulated ? 0.4 : 0),
+            dashArray: '3',
+        };
+    };
+
+    const onEachState = (feature, layer) => {
+        const stateName = feature.properties.name;
+        const isRegulated = !!REGULATED_STATES[stateName];
+
+        if (isRegulated) {
+            layer.bindTooltip(`${stateName}: Local Heat Regulations Apply`, { sticky: true });
+            
+            // Mouseover effects
+            layer.on({
+                mouseover: (e) => {
+                    const l = e.target;
+                    if (selectedRegState !== stateName) {
+                        l.setStyle({ fillOpacity: 0.6, weight: 3 });
+                    }
+                },
+                mouseout: (e) => {
+                    const l = e.target;
+                    if (selectedRegState !== stateName) {
+                        l.setStyle({ fillOpacity: 0.4, weight: 2 });
+                    }
+                },
+                click: () => {
+                    setSelectedRegState(prev => prev === stateName ? null : stateName);
+                }
+            });
+        } else {
+             // Non-regulated states don't get hover effects or clicks for this feature
+             layer.on({
+                 click: () => setSelectedRegState(null) // Click outside clears selection
+             })
+        }
+    };
+
 
     return (
         <>
@@ -477,7 +544,7 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
                     />
                     
                     {/* Render GeoJSON on top if available (for precise hover/click) */}
-                    {alerts.features.length < 500 && (
+                     {alerts.features.length < 500 && (
                         <GeoJSON 
                             key={`heat-geo-${alerts.features.length}`}
                             data={alerts}
@@ -492,14 +559,53 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
                             }}
                         />
                     )}
+                    
+                    {/* Render US States for Interactivity */}
+                    {usGeoJSON && (
+                        <GeoJSON 
+                            key={`states-${selectedRegState || 'none'}`}
+                            data={usGeoJSON} 
+                            style={styleState} 
+                            onEachFeature={onEachState} 
+                        />
+                    )}
                 </MapComponent>
             }
             rightPanel={
-                // Right panel can be used for charts or detailed legend in future. 
-                // For now, keeping AlertList in Left Panel as per Winter Mode standard? 
-                // Wait, Winter Mode has AlertList in RIGHT panel.
-                // Standardizing: Let's move AlertList to Right Panel to match Winter Mode.
-               <>
+                selectedRegState ? (
+                    <div style={{ padding: '20px' }}>
+                        <div style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, color: '#ff5e62', fontSize: '18px' }}>{selectedRegState} Regulations</h3>
+                            <button 
+                                onClick={() => setSelectedRegState(null)} 
+                                style={{ 
+                                    background: '#f8f9fa', 
+                                    border: '1px solid #ced4da', 
+                                    padding: '6px 12px', 
+                                    borderRadius: '6px', 
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: '500',
+                                    color: '#495057'
+                                }}
+                            >
+                                ← Back to Alerts
+                            </button>
+                        </div>
+                        <div style={{ background: '#f8f9fa', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #ff5e62', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                            <p style={{ margin: '0 0 12px 0', fontSize: '13px' }}><strong>Applies To:</strong><br/>{REGULATED_STATES[selectedRegState].appliesTo}</p>
+                            <p style={{ margin: '0 0 12px 0', fontSize: '13px' }}>
+                                <strong>Temperature Triggers:</strong><br/>
+                                <span dangerouslySetInnerHTML={{__html: REGULATED_STATES[selectedRegState].triggers.replace(/\n/g, '<br/>')}} />
+                            </p>
+                            <p style={{ margin: '0 0 0 0', fontSize: '13px' }}><strong>Required Employer Actions:</strong><br/>{REGULATED_STATES[selectedRegState].actions}</p>
+                        </div>
+                        <div style={{ marginTop: '20px', padding: '12px', background: '#e9ecef', borderRadius: '6px', fontSize: '11px', color: '#666' }}>
+                            ℹ️ Disclaimer: This is a high-level summary. Always consult official state OSHA or labor department guidelines for comprehensive compliance requirements.
+                        </div>
+                    </div>
+                ) : (
+                   <>
                      <div className="sidebar-header" style={{ 
                         padding: '16px', 
                         background: '#f8f9fa', 
@@ -541,7 +647,8 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
                             loading={loading}
                         />
                     </div>
-               </>
+                   </>
+                )
             }
         />
         </>
