@@ -13,6 +13,7 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
     const [fluData, setFluData] = useState({});
     const [covidData, setCovidData] = useState({});
     const [rsvData, setRsvData] = useState({});
+    const [apiSources, setApiSources] = useState({ flu: null, covid: null, rsv: null });
     const [usGeoJSON, setUsGeoJSON] = useState(null);
     
     // UI State
@@ -57,6 +58,11 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                 setFluData(flu.processedData || {});
                 setCovidData(covid.processedData || {});
                 setRsvData(rsv.processedData || {});
+                setApiSources({
+                    flu: flu.sourceUrl,
+                    covid: covid.sourceUrl,
+                    rsv: rsv.sourceUrl
+                });
                 setUsGeoJSON(geo);
                 
                 setStatus("Data Loaded. Select a state for details.");
@@ -340,6 +346,31 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                                         Date: {rsvData[Array.from(selectedStates)[0]].details.week_end.split('T')[0]}
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Raw Data Layout */}
+                            <div style={{ 
+                                marginTop: '10px', 
+                                padding: '12px', 
+                                backgroundColor: '#f8f9fa', 
+                                border: '1px solid #e9ecef', 
+                                borderRadius: '6px' 
+                            }}>
+                                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#495057' }}>🔍 Raw Data Sources</h4>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '11px' }}>
+                                    <li style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <a href={apiSources.flu} target="_blank" rel="noreferrer" style={{ color: '#0d6efd', textDecoration: 'none' }}>🤧 Flu (Delphi API) ↗</a>
+                                        <span style={{ color: '#6c757d' }}>{fluData[Array.from(selectedStates)[0]]?.details ? `Updated: ${fluData[Array.from(selectedStates)[0]].details.epiweek}` : 'No Data'}</span>
+                                    </li>
+                                    <li style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <a href={apiSources.covid} target="_blank" rel="noreferrer" style={{ color: '#0d6efd', textDecoration: 'none' }}>🦠 COVID-19 (CDC) ↗</a>
+                                        <span style={{ color: '#6c757d' }}>{covidData[Array.from(selectedStates)[0]]?.details ? `Updated: ${covidData[Array.from(selectedStates)[0]].details.date.split('T')[0]}` : 'No Data'}</span>
+                                    </li>
+                                    <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <a href={apiSources.rsv} target="_blank" rel="noreferrer" style={{ color: '#0d6efd', textDecoration: 'none' }}>👶 RSV (NSSP) ↗</a>
+                                        <span style={{ color: '#6c757d' }}>{rsvData[Array.from(selectedStates)[0]]?.details ? `Updated: ${rsvData[Array.from(selectedStates)[0]].details.week_end.split('T')[0]}` : 'No Data'}</span>
+                                    </li>
+                                </ul>
                             </div>
 
                         </div>

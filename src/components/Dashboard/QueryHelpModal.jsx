@@ -38,8 +38,56 @@ const QueryHelpModal = ({ onClose, content }) => {
                     {content ? (
                         <div>
                             <h4 style={{ color: '#007bff', marginBottom: '8px' }}>{content.label}</h4>
-                            <p><strong>Description:</strong> {content.description}</p>
-                            <p><em>(Placeholder for detailed SQL logic explanation based on selected query type.)</em></p>
+                            <p style={{ marginBottom: '16px' }}><strong>Description:</strong> {content.description}</p>
+                            
+                            {content.explanation && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <h5 style={{ margin: '0 0 8px 0', fontSize: '15px' }}>How it works</h5>
+                                    <p style={{ margin: 0 }}>{content.explanation}</p>
+                                </div>
+                            )}
+
+                            {content.sampleQuery && (
+                                <div>
+                                    <h5 style={{ margin: '0 0 8px 0', fontSize: '15px' }}>Example Query Structure</h5>
+                                    <div style={{ position: 'relative' }}>
+                                        <pre style={{
+                                            backgroundColor: '#f8f9fa',
+                                            padding: '12px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #e9ecef',
+                                            overflowX: 'auto',
+                                            fontSize: '12px',
+                                            margin: 0,
+                                            whiteSpace: 'pre-wrap',
+                                            fontFamily: 'monospace, monospace'
+                                        }}>
+                                            <code>{content.sampleQuery}</code>
+                                        </pre>
+                                        <button
+                                            onClick={() => navigator.clipboard.writeText(content.sampleQuery)}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '8px',
+                                                right: '8px',
+                                                background: '#fff',
+                                                border: '1px solid #ced4da',
+                                                borderRadius: '4px',
+                                                padding: '4px 8px',
+                                                fontSize: '11px',
+                                                cursor: 'pointer',
+                                                color: '#495057'
+                                            }}
+                                            title="Copy sample SQL"
+                                        >
+                                            📋 Copy
+                                        </button>
+                                    </div>
+                                    <p style={{ fontSize: '11px', color: '#6c757d', marginTop: '6px' }}>
+                                        <em>* Note: The final query will inject your specific Zip Codes, NAICS categories, and chosen boolean filters.</em>
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <p>Select a query type to see details.</p>

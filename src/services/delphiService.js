@@ -98,11 +98,11 @@ export const fetchFluData = async () => {
             };
         });
         
-        return { processedData, rawData: data.epidata };
+        return { processedData, rawData: data.epidata, sourceUrl: url };
 
     } catch (error) {
         console.error("Error fetching Delphi Flu Data:", error);
-        return { processedData: null, rawData: null, error: error.message };
+        return { processedData: null, rawData: null, sourceUrl: null, error: error.message };
     }
 };
 
@@ -181,11 +181,11 @@ export const fetchCovidData = async () => {
             };
         });
 
-        return { processedData, rawData: json };
+        return { processedData, rawData: json, sourceUrl: url };
 
     } catch (error) {
         console.error("Error fetching COVID Data:", error);
-         return { processedData: null, rawData: null, error: error.message };
+         return { processedData: null, rawData: null, sourceUrl: null, error: error.message };
     }
 };
 
@@ -252,10 +252,10 @@ export const fetchRSVData = async () => {
             };
         });
 
-        return { processedData, rawData: json };
+        return { processedData, rawData: json, sourceUrl: url };
 
     } catch (error) {
         console.error("Error fetching RSV Data:", error);
-        return { processedData: null, rawData: null, error: error.message };
+        return { processedData: null, rawData: null, sourceUrl: null, error: error.message };
     }
 };
