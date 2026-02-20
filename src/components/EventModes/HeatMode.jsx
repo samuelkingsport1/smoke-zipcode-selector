@@ -441,6 +441,70 @@ const HeatMode = ({ zipCodes = [], zipLoading = false }) => {
                              Active Heat Alerts
                         </h3>
                     </div>
+                    
+                    {/* Heatwave Regulations Reference Table */}
+                    <details style={{ background: '#fff', margin: '16px 16px 0 16px', padding: '12px', border: '1px solid #dee2e6', borderRadius: '8px' }}>
+                        <summary style={{ fontWeight: 'bold', cursor: 'pointer', color: '#495057', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                            <span>📋</span> State Heatwave Regulations Reference
+                        </summary>
+                        <div style={{ marginTop: '12px', overflowX: 'auto' }}>
+                            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                                        <th style={{ padding: '8px', borderRight: '1px solid #eee' }}>State</th>
+                                        <th style={{ padding: '8px', borderRight: '1px solid #eee' }}>Applies To</th>
+                                        <th style={{ padding: '8px', borderRight: '1px solid #eee' }}>Temperature Triggers</th>
+                                        <th style={{ padding: '8px' }}>Required Employer Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>California</strong></td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Outdoor + Indoor (separate rules)</td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Outdoor:</strong> 80°F (shade access), 95°F (high heat)<br/><br/><strong>Indoor:</strong> 82°F (control plan), 87°F (high heat)</td>
+                                        <td style={{ padding: '8px', verticalAlign: 'top' }}>Water (1 qt/hr), shade, cool-down rest, training, written prevention plan, observation during high heat, emergency response procedures</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Washington</strong></td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Outdoor</td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80°F (basic), 90°F (enhanced), 100°F (additional controls)</td>
+                                        <td style={{ padding: '8px', verticalAlign: 'top' }}>Drinking water, paid cool-down rest breaks, acclimatization, supervisor monitoring at higher temps, emergency planning</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Oregon</strong></td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Indoor + Outdoor</td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80°F (heat plan + water/rest), 90°F (mandatory rest schedule)</td>
+                                        <td style={{ padding: '8px', verticalAlign: 'top' }}>Heat illness prevention plan, shade/cooling area, 10-min rest every 2 hrs at 90°F+, training, acclimatization protocol</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Minnesota</strong></td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Indoor only</td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80–86°F (controls required), 87°F+ (mandatory controls)</td>
+                                        <td style={{ padding: '8px', verticalAlign: 'top' }}>Engineering controls or administrative controls, ventilation, rest breaks, exposure monitoring</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Colorado</strong></td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Agriculture only</td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80°F (basic protections), 95°F (high heat protections)</td>
+                                        <td style={{ padding: '8px', verticalAlign: 'top' }}>Drinking water, shade, rest breaks, increased monitoring at high heat, written procedures</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Maryland</strong></td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Indoor + Outdoor</td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>80°F (prevention plan required), 90°F (high heat procedures)</td>
+                                        <td style={{ padding: '8px', verticalAlign: 'top' }}>Heat illness prevention plan, water access, rest breaks, acclimatization, training, supervisor monitoring</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}><strong>Nevada</strong></td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>Indoor + Outdoor</td>
+                                        <td style={{ padding: '8px', borderRight: '1px solid #eee', verticalAlign: 'top' }}>90°F (controls required), 105°F (high heat)</td>
+                                        <td style={{ padding: '8px', verticalAlign: 'top' }}>Written job hazard analysis, water, rest breaks, cooling areas, monitoring at 105°F+, emergency response procedures</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+
                     <div className="sidebar-content" style={{ padding: '0', display: 'flex', flexDirection: 'column', height: '100%' }}>
                          <AlertList
                             alerts={alerts.features}
