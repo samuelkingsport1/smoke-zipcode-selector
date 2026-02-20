@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { GeoJSON } from 'react-leaflet';
+import { GeoJSON, WMSTileLayer } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 import AlertList from '../Dashboard/AlertList';
 import DashboardLayout from '../Dashboard/DashboardLayout';
