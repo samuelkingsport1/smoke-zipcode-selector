@@ -12,8 +12,6 @@ import { generateSQL } from '../../utils/sqlGenerator';
 const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
     // Data State
     const [fluData, setFluData] = useState({});
-    const [covidData, setCovidData] = useState({});
-    const [rsvData, setRsvData] = useState({});
     const [apiSources, setApiSources] = useState({ flu: null, covid: null, rsv: null });
     const [usGeoJSON, setUsGeoJSON] = useState(null);
     
@@ -57,8 +55,6 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                 ]);
 
                 setFluData(flu.processedData || {});
-                setCovidData(covid.processedData || {});
-                setRsvData(rsv.processedData || {});
                 setApiSources({
                     flu: flu.sourceUrl,
                     covid: covid.sourceUrl,
@@ -78,18 +74,10 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
         loadData();
     }, []);
 
-    // Helper: Get Risk Level for a State based on Tracker Filter
     const getRiskLevel = (stateName) => {
         const f = fluData[stateName]?.level || 0;
-        const c = covidData[stateName]?.level || 0;
-        const r = rsvData[stateName]?.level || 0;
-
-        if (selectedTracker === 'flu') return f;
-        if (selectedTracker === 'covid') return c;
-        if (selectedTracker === 'rsv') return r;
-        
-        // Default: All Tracked Illnesses (Max of all 3)
-        return Math.max(f, c, r);
+        // COVID and RSV are temporarily disabled for calculation due to stale API data
+        return f;
     };
 
     // Helper: Style Function for GeoJSON
@@ -272,8 +260,8 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                             >
                                 <option value="all">🛡️ All Tracked Illnesses (Combined Risk)</option>
                                 <option value="flu">🤧 Flu (Influenza)</option>
-                                <option value="covid">🦠 COVID-19</option>
-                                <option value="rsv">👶 RSV</option>
+                                <option value="covid">🦠 COVID-19 (Pending replacement source)</option>
+                                <option value="rsv">👶 RSV (Pending replacement source)</option>
                             </select>
                         </div>
 
@@ -401,36 +389,6 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                                 )}
                             </div>
 
-                            {/* COVID */}
-                            <div style={{ padding: '10px', background: '#f8f9fa', borderRadius: '8px', borderLeft: '4px solid #0dcaf0' }}>
-                                <strong style={{ display: 'block', marginBottom: '5px' }}>COVID-19 Hosp.</strong>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{covidData[Array.from(selectedStates)[0]]?.level || 'N/A'}</span>
-                                    <span style={{ fontSize: '12px', color: '#666' }}>/ 10</span>
-                                </div>
-                                {covidData[Array.from(selectedStates)[0]]?.details && (
-                                    <div style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-                                        Adm/100k: {covidData[Array.from(selectedStates)[0]].details.val?.toFixed(1)}<br/>
-                                        Date: {covidData[Array.from(selectedStates)[0]].details.date.split('T')[0]}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* RSV */}
-                            <div style={{ padding: '10px', background: '#f8f9fa', borderRadius: '8px', borderLeft: '4px solid #fd7e14' }}>
-                                <strong style={{ display: 'block', marginBottom: '5px' }}>RSV ED Visits</strong>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{rsvData[Array.from(selectedStates)[0]]?.level || 'N/A'}</span>
-                                    <span style={{ fontSize: '12px', color: '#666' }}>/ 10</span>
-                                </div>
-                                {rsvData[Array.from(selectedStates)[0]]?.details && (
-                                    <div style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-                                        % Visits: {rsvData[Array.from(selectedStates)[0]].details.percent_visits?.toFixed(1)}%<br/>
-                                        Date: {rsvData[Array.from(selectedStates)[0]].details.week_end.split('T')[0]}
-                                    </div>
-                                )}
-                            </div>
-
                             {/* Raw Data Layout */}
                             <div style={{ 
                                 marginTop: '10px', 
@@ -444,14 +402,6 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                                     <li style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <a href={apiSources.flu} target="_blank" rel="noreferrer" style={{ color: '#0d6efd', textDecoration: 'none' }}>🤧 Flu (Delphi API) ↗</a>
                                         <span style={{ color: '#6c757d' }}>{fluData[Array.from(selectedStates)[0]]?.details ? `Updated: ${fluData[Array.from(selectedStates)[0]].details.epiweek}` : 'No Data'}</span>
-                                    </li>
-                                    <li style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <a href={apiSources.covid} target="_blank" rel="noreferrer" style={{ color: '#0d6efd', textDecoration: 'none' }}>🦠 COVID-19 (CDC) ↗</a>
-                                        <span style={{ color: '#6c757d' }}>{covidData[Array.from(selectedStates)[0]]?.details ? `Updated: ${covidData[Array.from(selectedStates)[0]].details.date.split('T')[0]}` : 'No Data'}</span>
-                                    </li>
-                                    <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <a href={apiSources.rsv} target="_blank" rel="noreferrer" style={{ color: '#0d6efd', textDecoration: 'none' }}>👶 RSV (NSSP) ↗</a>
-                                        <span style={{ color: '#6c757d' }}>{rsvData[Array.from(selectedStates)[0]]?.details ? `Updated: ${rsvData[Array.from(selectedStates)[0]].details.week_end.split('T')[0]}` : 'No Data'}</span>
                                     </li>
                                 </ul>
                             </div>

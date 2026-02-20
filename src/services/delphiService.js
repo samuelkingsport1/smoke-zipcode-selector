@@ -57,9 +57,17 @@ export const fetchFluData = async () => {
             const fullStateName = Object.keys(US_STATES).find(key => US_STATES[key] === stateAbbr);
             
             if (fullStateName) {
-                // Check if this entry is newer than what we have
-                if (!latestByState[fullStateName] || entry.epiweek > latestByState[fullStateName].epiweek) {
+                const currentLatest = latestByState[fullStateName];
+                if (!currentLatest) {
                     latestByState[fullStateName] = entry;
+                } else {
+                    const entryIssue = entry.issue || 0;
+                    const currentIssue = currentLatest.issue || 0;
+                    if (entryIssue > currentIssue) {
+                        latestByState[fullStateName] = entry;
+                    } else if (entryIssue === currentIssue && entry.epiweek > currentLatest.epiweek) {
+                        latestByState[fullStateName] = entry;
+                    }
                 }
             }
         });
