@@ -12,6 +12,7 @@ import * as turf from '@turf/turf';
 import { US_STATES, STATE_ABBREVIATIONS } from '../../utils/constants';
 import { NWSService } from '../../services/nwsService';
 import { formatWeatherAlert } from '../../services/weatherFormatter';
+import { generateSQL } from '../../utils/sqlGenerator';
 
 const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
     const [alerts, setAlerts] = useState(null);
@@ -40,17 +41,13 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
     });
 
     useEffect(() => {
-        fetchAlerts();
-    }, [date]);
-
-    useEffect(() => {
         window._debug_alerts = alerts;
         window._debug_zipCodes = zipCodes;
         window._debug_turf = turf;
         console.log("Debug vars exposed on window");
     }, [alerts, zipCodes]);
 
-    const fetchAlerts = async () => {
+    const fetchAlerts = React.useCallback(async () => {
         setLoading(true);
         setStatus(date ? `Searching Archive for ${date}...` : "Fetching NWS Winter Storm Warnings...");
 
@@ -78,7 +75,11 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [date]);
+
+    useEffect(() => {
+        fetchAlerts();
+    }, [fetchAlerts]);
 
     // State for interactive selection
     const [focusedId, setFocusedId] = useState(null);
@@ -162,6 +163,7 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
                 if (fetchedGeometries.length > 0) activePolygons.push(...fetchedGeometries);
 
                 const bboxes = activePolygons.map(geom => {
+                    // eslint-disable-next-line no-unused-vars
                     try { return turf.bbox(geom); } catch (e) { return null; }
                 }).filter(b => b !== null);
 
@@ -347,76 +349,23 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
             }
 
             const zipList = Array.from(selectedZips);
-            const zipString = zipList.map(z => `'${z}'`).join(", ");
+            const sqlContent = generateSQL(exportConfig, zipList, selectedNAICS, actionType === 'COUNT');
 
-            if (actionType === 'COUNT') {
-                // Construct Filter Clauses
-                const { filters, recordType } = exportConfig;
-                let filterClauses = "";
-                if (filters.activeStatus) filterClauses += "\nAND c.Status__c = 'Active'";
-                if (filters.lastActivityMonths) filterClauses += `\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
-                if (filters.lastOrderMonths) filterClauses += `\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
-                if (filters.minTotalSales) filterClauses += `\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
-
-                const countSql = `Select count(s.id)
-From SFDC_DS.SFDC_ACCOUNT_OBJECT s
-${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
-Where s.RECORDTYPE_NAME__C = '${recordType}'
-AND s.Zip__c IN (${zipString})${
-    selectedNAICS.size > 0 
-    ? `\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
-    : ""
-}${filterClauses}`;
-
-                navigator.clipboard.writeText(countSql).then(() => {
-                    alert("Count SQL copied to clipboard!");
-                    setStatus("Count SQL copied.");
+            if (actionType === 'COUNT' || actionType === 'COPY') {
+                navigator.clipboard.writeText(sqlContent).then(() => {
+                    alert(`${actionType === 'COUNT' ? 'Count SQL' : 'SQL Query'} copied to clipboard!`);
+                    setStatus("SQL Query copied.");
                 });
             } else {
-                 // Dynamic Field Selection
-                 const { filters, recordType, fields } = exportConfig;
-                 const baseFields = ["id", "Name", "CUST_ID__C"];
-                 const additionalFields = Object.keys(fields).filter(key => fields[key]);
-                 const allFields = [...baseFields, ...additionalFields].join(", ");
-
-                 // Sorting
-                 const orderByClause = exportConfig.sortBy ? `\nORDER BY s.${exportConfig.sortBy} DESC NULLS LAST` : "";
-
-                 // Filter Clauses (Same as COUNT)
-                 let filterClauses = "";
-                 if (filters.activeStatus) filterClauses += "\nAND c.Status__c = 'Active'";
-                 if (filters.lastActivityMonths) filterClauses += `\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
-                 if (filters.lastOrderMonths) filterClauses += `\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
-                 if (filters.minTotalSales) filterClauses += `\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
-
-                const naicsFields = selectedNAICS.size > 0 ? ", org.NAICS___c, org.NAICS_Description__c" : "";
-                
-                const sqlContent = `Select ${allFields.map(f => `s.${f}`).join(", ")}${naicsFields}
-From SFDC_DS.SFDC_ACCOUNT_OBJECT s
-${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
-Where s.RECORDTYPE_NAME__C = '${recordType}'
-AND s.Zip__c IN (${zipString})${
-    selectedNAICS.size > 0 
-    ? `\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
-    : ""
-}${filterClauses}${orderByClause}`;
-
-                if (actionType === 'COPY') {
-                    navigator.clipboard.writeText(sqlContent).then(() => {
-                        alert("SQL Query copied to clipboard!");
-                        setStatus("SQL Query copied.");
-                    });
-                } else {
-                    const blob = new Blob([sqlContent], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', 'winter_targets.sql');
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
-                }
+                const blob = new Blob([sqlContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'winter_targets.sql');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
             }
         }, 100);
     };

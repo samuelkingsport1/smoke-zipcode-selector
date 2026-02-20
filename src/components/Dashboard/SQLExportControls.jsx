@@ -3,11 +3,6 @@ import QuerySelector from './QuerySelector';
 import NAICSFilter from './NAICSFilter';
 
 
-const OPTIONAL_FIELDS = [
-    { key: 'Last_Order_Date__C', label: 'Last Order Date' },
-    { key: 'Total_LY_Sales__C', label: 'Total LY Sales' },
-    { key: 'Total_ty_Sales_to_Date__c', label: 'Total TY Sales to Date' }
-];
 
 const SQLExportControls = ({ config, setConfig, selectedNAICS, setSelectedNAICS }) => {
     
@@ -15,15 +10,7 @@ const SQLExportControls = ({ config, setConfig, selectedNAICS, setSelectedNAICS 
         setConfig(prev => ({ ...prev, [key]: value }));
     };
 
-    const handleFieldToggle = (fieldKey) => {
-        setConfig(prev => ({
-            ...prev,
-            fields: {
-                ...prev.fields,
-                [fieldKey]: !prev.fields[fieldKey]
-            }
-        }));
-    };
+
 
     const handleQuerySelect = (newConfig) => {
         // 1. Update Export Config
@@ -62,88 +49,54 @@ const SQLExportControls = ({ config, setConfig, selectedNAICS, setSelectedNAICS 
 
             <div style={{ margin: '10px 0', borderTop: '1px solid #eee' }}></div>
 
-
-            {/* Field Selection */}
-            <div style={{ marginBottom: '8px' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Include Fields</label>
-                {OPTIONAL_FIELDS.map(field => (
-                    <div key={field.key} style={{ marginBottom: '2px' }}>
-                        <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                            <input 
-                                type="checkbox" 
-                                checked={config.fields[field.key]} 
-                                onChange={() => handleFieldToggle(field.key)}
-                                style={{ marginRight: '6px' }}
-                            />
-                            {field.label}
-                        </label>
-                    </div>
-                ))}
-            </div>
-
-            {/* Sorting */}
             <div>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Sort By</label>
-                <select 
-                    value={config.sortBy} 
-                    onChange={(e) => handleChange('sortBy', e.target.value)}
-                    style={{ width: '100%', padding: '4px' }}
-                >
-                    <option value="">No Sorting</option>
-                    {OPTIONAL_FIELDS.map(field => (
-                        <option key={field.key} value={field.key}>{field.label}</option>
-                    ))}
-                </select>
-            </div>
+                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px' }}>Default Field Filters</label>
 
-            {/* NEW: SQL Filters */}
-            <div style={{ marginTop: '15px', paddingTop: '10px', borderTop: '1px solid #ddd' }}>
-                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px' }}>Filters</label>
-                 
+                 <div style={{ marginBottom: '8px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '2px' }}>Contact(If Applicable) Number of Months Since Last Activity</label>
+                    <input 
+                        type="number" 
+                        value={config.filters?.contactActivityMonths !== undefined ? config.filters.contactActivityMonths : 12}
+                        onChange={(e) => handleChange('filters', { ...config.filters, contactActivityMonths: e.target.value })}
+                        style={{ width: '100%', padding: '4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px' }}
+                    />
+                 </div>
+
                  <div style={{ marginBottom: '8px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', fontSize: '11px', cursor: 'pointer' }}>
                         <input 
                             type="checkbox" 
-                            checked={config.filters?.activeStatus ?? true} 
-                            onChange={(e) => handleChange('filters', { ...config.filters, activeStatus: e.target.checked })}
+                            checked={config.filters?.contactActive ?? true} 
+                            onChange={(e) => handleChange('filters', { ...config.filters, contactActive: e.target.checked })}
                             style={{ marginRight: '6px' }}
                         />
-                        Parent Status: <strong>Active</strong>
+                        Contact(If Applicable) Status: Active
                     </label>
                 </div>
 
-                <div style={{ marginBottom: '8px' }}>
-                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '2px' }}>Last Activity (Months)</label>
-                    <input 
-                        type="number" 
-                        placeholder="e.g. 12"
-                        value={config.filters?.lastActivityMonths || ''}
-                        onChange={(e) => handleChange('filters', { ...config.filters, lastActivityMonths: e.target.value })}
-                        style={{ width: '100%', padding: '4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px' }}
-                    />
-                </div>
+                 <div style={{ marginBottom: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', fontSize: '11px', cursor: 'pointer' }}>
+                        <input 
+                            type="checkbox" 
+                            checked={config.filters?.siteActive ?? true} 
+                            onChange={(e) => handleChange('filters', { ...config.filters, siteActive: e.target.checked })}
+                            style={{ marginRight: '6px' }}
+                        />
+                        Site(If Applicable) Status: Active
+                    </label>
+                 </div>
 
-                <div style={{ marginBottom: '8px' }}>
-                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '2px' }}>Last Order (Months)</label>
-                    <input 
-                        type="number" 
-                        placeholder="e.g. 6"
-                        value={config.filters?.lastOrderMonths || ''}
-                        onChange={(e) => handleChange('filters', { ...config.filters, lastOrderMonths: e.target.value })}
-                        style={{ width: '100%', padding: '4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px' }}
-                    />
-                </div>
-
-                <div>
-                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '2px' }}>Min Total Sales LY ($)</label>
-                    <input 
-                        type="number" 
-                        placeholder="e.g. 5000"
-                        value={config.filters?.minTotalSales || ''}
-                        onChange={(e) => handleChange('filters', { ...config.filters, minTotalSales: e.target.value })}
-                        style={{ width: '100%', padding: '4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px' }}
-                    />
-                </div>
+                 <div style={{ marginBottom: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', fontSize: '11px', cursor: 'pointer' }}>
+                        <input 
+                            type="checkbox" 
+                            checked={config.filters?.customerActive ?? true} 
+                            onChange={(e) => handleChange('filters', { ...config.filters, customerActive: e.target.checked })}
+                            style={{ marginRight: '6px' }}
+                        />
+                        Customer(If Applicable) Status: Active
+                    </label>
+                 </div>
             </div>
 
             {/* Relocated NAICS Filter */}

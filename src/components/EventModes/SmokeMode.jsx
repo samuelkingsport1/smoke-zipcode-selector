@@ -9,9 +9,10 @@ import DashboardLayout from '../Dashboard/DashboardLayout';
 import ExportActionButtons from '../Dashboard/ExportActionButtons';
 import SQLExportControls from '../Dashboard/SQLExportControls';
 import { US_STATES } from '../../utils/constants';
+import { generateSQL } from '../../utils/sqlGenerator';
 
 const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
-    const [loading, setLoading] = useState(false); // Local processing state (e.g. Export calculation)
+    const [loading] = useState(false); // Local processing state (e.g. Export calculation)
     const [status, setStatus] = useState("Initializing...");
     // Default to yesterday's date as it is safer for satellite data availability
     const [date, setDate] = useState(() => new Date(Date.now() - 86400000).toISOString().split('T')[0]);
@@ -265,79 +266,24 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
             }
 
             const zipList = Array.from(selectedZips);
-            const zipString = zipList.map(z => `'${z}'`).join(", ");
+            const sqlContent = generateSQL(exportConfig, zipList, selectedNAICS, actionType === 'COUNT');
 
-            if (actionType === 'COUNT') {
-                // Construct Filter Clauses
-                const { filters, recordType } = exportConfig;
-                let filterClauses = "";
-                if (filters.activeStatus) filterClauses += "\nAND c.Status__c = 'Active'";
-                if (filters.lastActivityMonths) filterClauses += `\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
-                if (filters.lastOrderMonths) filterClauses += `\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
-                if (filters.minTotalSales) filterClauses += `\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
-
-                const countSql = `Select count(s.id)
-From SFDC_DS.SFDC_ACCOUNT_OBJECT s
-${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
-Where s.RECORDTYPE_NAME__C = '${recordType}'
-AND s.Zip__c IN (${zipString})${
-    selectedNAICS.size > 0 
-    ? `\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
-    : ""
-}${filterClauses}`;
-
-                navigator.clipboard.writeText(countSql).then(() => {
-                    alert("Count SQL copied to clipboard!");
-                    setStatus("Count SQL copied.");
+            if (actionType === 'COUNT' || actionType === 'COPY') {
+                navigator.clipboard.writeText(sqlContent).then(() => {
+                    alert(`${actionType === 'COUNT' ? 'Count SQL' : 'SQL Query'} copied to clipboard!`);
+                    setStatus("SQL Query copied.");
                 });
-
             } else {
-                 // Dynamic Field Selection
-                 const { filters, recordType, fields } = exportConfig;
-                 const baseFields = ["id", "Name", "CUST_ID__C"];
-                 const additionalFields = Object.keys(fields).filter(key => fields[key]);
-                 const allFields = [...baseFields, ...additionalFields].join(", ");
-
-                 // Sorting
-                 const orderByClause = exportConfig.sortBy ? `\nORDER BY s.${exportConfig.sortBy} DESC NULLS LAST` : "";
-
-                 // Filter Clauses (Same as COUNT)
-                let filterClauses = "";
-                if (filters.activeStatus) filterClauses += "\nAND c.Status__c = 'Active'";
-                if (filters.lastActivityMonths) filterClauses += `\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
-                if (filters.lastOrderMonths) filterClauses += `\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
-                if (filters.minTotalSales) filterClauses += `\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
-
-                // Standard Select Query
-                const naicsFields = selectedNAICS.size > 0 ? ", org.NAICS___c, org.NAICS_Description__c" : "";
-                
-                const sqlContent = `Select ${allFields.map(f => `s.${f}`).join(", ")}${naicsFields}
-From SFDC_DS.SFDC_ACCOUNT_OBJECT s
-${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
-Where s.RECORDTYPE_NAME__C = '${recordType}'
-AND s.Zip__c IN (${zipString})${
-    selectedNAICS.size > 0 
-    ? `\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
-    : ""
-}${filterClauses}${orderByClause}`;
-
-                if (actionType === 'COPY') {
-                    navigator.clipboard.writeText(sqlContent).then(() => {
-                        alert("SQL Query copied to clipboard!");
-                        setStatus("SQL Query copied.");
-                    });
-                } else {
-                    // DOWNLOAD
-                    const blob = new Blob([sqlContent], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', 'smoke_targets.sql');
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
-                }
+                // DOWNLOAD
+                const blob = new Blob([sqlContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'smoke_targets.sql');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setStatus(`Exported SQL for ${selectedZips.size} zip codes.`);
             }
         } catch (e) {
             console.error(e);

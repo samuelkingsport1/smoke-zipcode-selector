@@ -6,6 +6,7 @@ import ExportActionButtons from '../Dashboard/ExportActionButtons';
 import SQLExportControls from '../Dashboard/SQLExportControls';
 import { US_STATES } from '../../utils/constants';
 import { fetchFluData, fetchCovidData, fetchRSVData } from '../../services/delphiService';
+import { generateSQL } from '../../utils/sqlGenerator';
 
 const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
     // Data State
@@ -147,69 +148,24 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                 return;
             }
 
-            const zipString = targetZips.map(z => `'${z.zip}'`).join(", ");
-            const { filters, recordType, fields, sortBy } = exportConfig;
+            const zipList = targetZips.map(z => z.zip);
+            const sqlContent = generateSQL(exportConfig, zipList, selectedNAICS, actionType === 'COUNT');
 
-            // ... (Reusable SQL Logic from other modes) ...
-            // Simplified for brevity, same structure as other modes
-             let filterClauses = "";
-             if (filters.activeStatus) filterClauses += "\\nAND c.Status__c = 'Active'";
-             if (filters.lastActivityMonths) filterClauses += `\\nAND c.LastActivityDate >= DATEADD(month, -${filters.lastActivityMonths}, GETDATE())`;
-             if (filters.lastOrderMonths) filterClauses += `\\nAND c.LastOrderDate__c >= DATEADD(month, -${filters.lastOrderMonths}, GETDATE())`;
-             if (filters.minTotalSales) filterClauses += `\\nAND c.Total_Sales_LY__c >= ${filters.minTotalSales}`;
-             
-             const naicsFields = selectedNAICS.size > 0 ? ", org.NAICS___c, org.NAICS_Description__c" : "";
-             const orderByClause = sortBy ? `\\nORDER BY s.${sortBy} DESC NULLS LAST` : "";
-
-             let sqlContent = "";
-
-             if (actionType === 'COUNT') {
-                sqlContent = `Select count(s.id)
-From SFDC_DS.SFDC_ACCOUNT_OBJECT s
-${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id\\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
-Where s.RECORDTYPE_NAME__C = '${recordType}'
-AND s.Zip__c IN (${zipString})${
-    selectedNAICS.size > 0 
-    ? `\\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
-    : ""
-}${filterClauses}`;
-                
-                navigator.clipboard.writeText(sqlContent).then(() => {
-                     alert("Count SQL copied!");
+             if (actionType === 'COPY' || actionType === 'COUNT') {
+                 navigator.clipboard.writeText(sqlContent).then(() => {
+                     alert(`${actionType} SQL copied!`);
                      setStatus("SQL Copied.");
-                });
-
+                 });
              } else {
-                 const baseFields = ["id", "Name", "CUST_ID__C"];
-                 const additionalFields = Object.keys(fields).filter(key => fields[key]);
-                 const allFields = [...baseFields, ...additionalFields].join(", ");
-
-                 sqlContent = `Select ${allFields.map(f => `s.${f}`).join(", ")}${naicsFields}
-From SFDC_DS.SFDC_ACCOUNT_OBJECT s
-${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id\\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
-Where s.RECORDTYPE_NAME__C = '${recordType}'
-AND s.Zip__c IN (${zipString})${
-    selectedNAICS.size > 0 
-    ? `\\nAND (${Array.from(selectedNAICS).map(code => `org.NAICS___c LIKE '${code}%'`).join(" OR ")})` 
-    : ""
-}${filterClauses}${orderByClause}`;
-
-                 if (actionType === 'COPY') {
-                     navigator.clipboard.writeText(sqlContent).then(() => {
-                         alert("SQL Query copied!");
-                         setStatus("SQL Copied.");
-                     });
-                 } else {
-                     const blob = new Blob([sqlContent], { type: 'text/plain' });
-                     const url = URL.createObjectURL(blob);
-                     const link = document.createElement('a');
-                     link.href = url;
-                     link.setAttribute('download', `respiratory_targets_${stateAbbr}.sql`);
-                     document.body.appendChild(link);
-                     link.click();
-                     document.body.removeChild(link);
-                     setStatus(`Exported SQL for ${stateAbbr}.`);
-                 }
+                 const blob = new Blob([sqlContent], { type: 'text/plain' });
+                 const url = URL.createObjectURL(blob);
+                 const link = document.createElement('a');
+                 link.href = url;
+                 link.setAttribute('download', `respiratory_targets_${stateAbbr}.sql`);
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+                 setStatus(`Exported SQL for ${stateAbbr}.`);
              }
         }, 100);
     };

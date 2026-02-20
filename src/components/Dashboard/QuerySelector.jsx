@@ -6,29 +6,29 @@ const QUERY_TYPES = [
         id: 'count_summary', 
         label: '1. Site / Customer / Contact Count', 
         description: 'Get a summary count of all records.',
-        config: { recordType: 'Count', filters: {}, naics: [] } 
+        config: { recordType: 'Count', filters: { contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
     },
     { 
         id: 'site_export', 
         label: '2. Site Export', 
         description: 'Export Site records.',
-        config: { recordType: 'Site', filters: { activeStatus: true }, naics: [] } 
+        config: { recordType: 'Site', filters: { contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
     },
     { 
         id: 'customer_export', 
         label: '3. Customer Export', 
         description: 'Export Customer records.',
-        config: { recordType: 'Customer', filters: { activeStatus: true, minTotalSales: '5000' }, naics: [] } 
+        config: { recordType: 'Customer', filters: { contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
     },
     { 
         id: 'contact_export', 
         label: '4. Contact Export', 
         description: 'Export Contact records.',
-        config: { recordType: 'Contact', filters: { activeStatus: true }, naics: [] } 
+        config: { recordType: 'Contact', filters: { contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
     }
 ];
 
-const QuerySelector = ({ onSelect, currentConfig }) => {
+const QuerySelector = ({ onSelect }) => {
     const [showHelp, setShowHelp] = useState(false);
     const [selectedId, setSelectedId] = useState('count_summary');
     const [helpContent, setHelpContent] = useState(null);
