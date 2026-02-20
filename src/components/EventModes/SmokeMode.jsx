@@ -516,7 +516,61 @@ AND s.Zip__c IN (${zipString})${
                                 <li style={{ marginTop: '8px' }}>Use the <strong>Export Data</strong> section to download Zip Codes (CSV) or generate a SQL query.</li>
                             </ul>
                         </div>
-                        {/* Placeholder for future detailed stats or Legend component */}
+                        {/* Cadence Email Template */}
+                        <div style={{ 
+                            marginTop: '20px',
+                            padding: '16px', 
+                            backgroundColor: '#fffcf5', 
+                            borderRadius: '8px', 
+                            border: '1px solid #ffd8a8',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                        }}>
+                            <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#d9480f', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>✉️</span> Sample Cadence Email
+                            </h4>
+                            <div style={{ fontSize: '12px', color: '#495057', lineHeight: '1.5' }}>
+                                <p style={{ margin: '0 0 8px 0' }}><strong>Subject Line:</strong> Supporting Your Team During Local Air Quality Alerts</p>
+                                <p style={{ margin: '0 0 8px 0' }}>Hi {'{{FirstName}}'},</p>
+                                <p style={{ margin: '0 0 8px 0' }}>I hope you and your team are doing well and staying comfortable during the recent air quality alerts in your area. At ODP Business Solutions, we’re here to help you keep operations running smoothly and your employees more comfortable while they’re on-site.</p>
+                                <p style={{ margin: '0 0 8px 0' }}>Here are a few items many organizations in affected regions find especially helpful:</p>
+                                <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>
+                                    <li style={{ marginBottom: '4px' }}><strong>Air Purifiers & Filters</strong> – HEPA and high-efficiency units for offices, conference rooms, and shared spaces.</li>
+                                    <li style={{ marginBottom: '4px' }}><strong>N95 & Disposable Masks</strong> – For employees who may need to be on-site, travel between locations, or interact with visitors.</li>
+                                    <li style={{ marginBottom: '4px' }}><strong>Cleaning & Maintenance Supplies</strong> – Filters, wipes, and surface cleaners to help support your overall workplace environment.</li>
+                                    <li style={{ marginBottom: '4px' }}><strong>Workspace Wellness Items</strong> – Hydration stations, facial tissues, and other breakroom and wellness essentials.</li>
+                                </ul>
+                                <p style={{ margin: '0 0 12px 0' }}>If you’d like, I can put together a quick list of recommended options and pricing tailored to your locations and headcount.</p>
+                                <p style={{ margin: 0 }}>Best regards,<br/>
+                                {'{{YourName}}'}<br/>
+                                {'{{YourTitle}}'}<br/>
+                                <strong>ODP Business Solutions</strong><br/>
+                                {'{{YourEmail}} | {{YourPhone}}'}</p>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    const text = `Subject Line: Supporting Your Team During Local Air Quality Alerts\n\nHi {{FirstName}},\n\nI hope you and your team are doing well and staying comfortable during the recent air quality alerts in your area. At ODP Business Solutions, we’re here to help you keep operations running smoothly and your employees more comfortable while they’re on-site.\n\nHere are a few items many organizations in affected regions find especially helpful:\n• Air Purifiers & Filters – HEPA and high-efficiency units for offices, conference rooms, and shared spaces.\n• N95 & Disposable Masks – For employees who may need to be on-site, travel between locations, or interact with visitors.\n• Cleaning & Maintenance Supplies – Filters, wipes, and surface cleaners to help support your overall workplace environment.\n• Workspace Wellness Items – Hydration stations, facial tissues, and other breakroom and wellness essentials.\n\nIf you’d like, I can put together a quick list of recommended options and pricing tailored to your locations and headcount.\n\nBest regards,\n{{YourName}}\n{{YourTitle}}\nODP Business Solutions\n{{YourEmail}} | {{YourPhone}}`;
+                                    navigator.clipboard.writeText(text);
+                                    alert('Email template copied to clipboard!');
+                                }}
+                                style={{
+                                    marginTop: '12px',
+                                    width: '100%',
+                                    padding: '8px',
+                                    backgroundColor: '#fff',
+                                    border: '1px solid #d9480f',
+                                    color: '#d9480f',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    transition: 'background 0.2s'
+                                }}
+                                onMouseOver={(e) => e.target.style.backgroundColor = '#fffefe'}
+                                onMouseOut={(e) => e.target.style.backgroundColor = '#fff'}
+                            >
+                                📋 Copy Template
+                            </button>
+                        </div>
                     </div>
                 </>
             }
