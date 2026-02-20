@@ -13,7 +13,7 @@ console.log("!!! APP.JSX MODULE LOADED !!!");
 
 const App = () => {
   // Simple version logging
-  const APP_VERSION = "v1.4.3 - 2026-02-20 (Heat Mode Crash Fix)";
+  const APP_VERSION = "v1.4.4 - 2026-02-20 (Heat Mode Modal)";
   console.log(`%c ODP Sales Utility ${APP_VERSION}`, 'background: #222; color: #bada55; font-size: 14px; padding: 4px; border-radius: 4px;');
 
   const [activeTab, setActiveTab] = useState('smoke');
