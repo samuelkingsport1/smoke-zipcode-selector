@@ -18,6 +18,7 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState("Initializing Respiratory Mode...");
     const [selectedState, setSelectedState] = useState(null); // Full State Name (e.g. 'Texas')
+    const [selectedTracker, setSelectedTracker] = useState('all'); // 'all', 'flu', 'covid', 'rsv'
 
     // Export Config
     const [selectedNAICS, setSelectedNAICS] = useState(new Set());
@@ -69,11 +70,17 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
         loadData();
     }, []);
 
-    // Helper: Get Combined Level for a State
+    // Helper: Get Risk Level for a State based on Tracker Filter
     const getRiskLevel = (stateName) => {
         const f = fluData[stateName]?.level || 0;
         const c = covidData[stateName]?.level || 0;
         const r = rsvData[stateName]?.level || 0;
+
+        if (selectedTracker === 'flu') return f;
+        if (selectedTracker === 'covid') return c;
+        if (selectedTracker === 'rsv') return r;
+        
+        // Default: All Tracked Illnesses (Max of all 3)
         return Math.max(f, c, r);
     };
 
@@ -220,6 +227,32 @@ AND s.Zip__c IN (${zipString})${
                     
                     <div className="sidebar-content" style={{ padding: '16px' }}>
                         
+                        {/* Tracker Filter */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <label className="sidebar-label">Select Tracker</label>
+                            <select 
+                                value={selectedTracker}
+                                onChange={(e) => setSelectedTracker(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #ced4da',
+                                    backgroundColor: 'white',
+                                    color: '#495057',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    outline: 'none',
+                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.075)'
+                                }}
+                            >
+                                <option value="all">🛡️ All Tracked Illnesses (Combined Risk)</option>
+                                <option value="flu">🤧 Flu (Influenza)</option>
+                                <option value="covid">🦠 COVID-19</option>
+                                <option value="rsv">👶 RSV</option>
+                            </select>
+                        </div>
+
                         <div style={{ marginBottom: '20px' }}>
                             <label className="sidebar-label">Risk Legend (1-10)</label>
                             <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
