@@ -6,25 +6,25 @@ const QUERY_TYPES = [
         id: 'count_summary', 
         label: '1. Site / Customer / Contact Count', 
         description: 'Get a summary count of all records.',
-        config: { recordType: 'Count', filters: { contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
+        config: { recordType: 'Count', filters: { contactUniqueEmails: true, contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
     },
     { 
         id: 'site_export', 
         label: '2. Site Export', 
         description: 'Export Site records.',
-        config: { recordType: 'Site', filters: { contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
+        config: { recordType: 'Site', filters: { contactUniqueEmails: true, contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
     },
     { 
         id: 'customer_export', 
         label: '3. Customer Export', 
         description: 'Export Customer records.',
-        config: { recordType: 'Customer', filters: { contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
+        config: { recordType: 'Customer', filters: { contactUniqueEmails: true, contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
     },
     { 
         id: 'contact_export', 
         label: '4. Contact Export', 
         description: 'Export Contact records.',
-        config: { recordType: 'Contact', filters: { contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
+        config: { recordType: 'Contact', filters: { contactUniqueEmails: true, contactActivityMonths: 12, contactActive: true, siteActive: true, customerActive: true }, naics: [] } 
     }
 ];
 

@@ -66,6 +66,18 @@ const SQLExportControls = ({ config, setConfig, selectedNAICS, setSelectedNAICS 
                     <label style={{ display: 'flex', alignItems: 'center', fontSize: '11px', cursor: 'pointer' }}>
                         <input 
                             type="checkbox" 
+                            checked={config.filters?.contactUniqueEmails ?? true} 
+                            onChange={(e) => handleChange('filters', { ...config.filters, contactUniqueEmails: e.target.checked })}
+                            style={{ marginRight: '6px' }}
+                        />
+                        Contact(If Applicable) Unique Emails Only Prefer Latest Activity Date
+                    </label>
+                </div>
+
+                 <div style={{ marginBottom: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', fontSize: '11px', cursor: 'pointer' }}>
+                        <input 
+                            type="checkbox" 
                             checked={config.filters?.contactActive ?? true} 
                             onChange={(e) => handleChange('filters', { ...config.filters, contactActive: e.target.checked })}
                             style={{ marginRight: '6px' }}

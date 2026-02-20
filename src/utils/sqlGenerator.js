@@ -20,6 +20,7 @@ export const generateSQL = (exportConfig, zipList, selectedNAICS, isCountAction)
     const contactActivityWhere = (contactActivityMonths && !isNaN(contactActivityMonths)) 
         ? `\n  AND c.LastActivityDate IS NOT NULL\n  AND c.LastActivityDate >= DATEADD(month, -${contactActivityMonths}, CURRENT_DATE)`
         : "";
+    const { contactUniqueEmails = true } = filters || {};
 
     const type = isCountAction ? 'Count' : recordType;
 
@@ -40,8 +41,7 @@ WHERE site.RECORDTYPE_NAME__C = 'Site'
     }
 
     if (type === 'Contact') {
-        return `/* Contacts Export */
-SELECT DISTINCT
+        const baseQuery = `SELECT DISTINCT
     c.Id,
     c.FirstName,
     c.LastName,
@@ -51,7 +51,10 @@ SELECT DISTINCT
     c.LastActivityDate,
 
     cust.Id              AS customer_account_id,
-    o.NAICS_2017_CODE__C AS naics_code
+    cust.Name            AS account_name,
+    cust.CUST_ID__C      AS account_cust_id,
+
+    o.NAICS_2017_CODE__C AS naics_code${contactUniqueEmails ? ",\n    ROW_NUMBER() OVER (PARTITION BY c.Email ORDER BY c.LastActivityDate DESC) as rn" : ""}
 FROM SFDC_DS.SFDC_ACCOUNT_OBJECT site
 JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT cust
   ON site.Related_Account__c = cust.Id
@@ -62,7 +65,35 @@ JOIN SFDC_DS.SFDC_ORG__C_OBJECT o
 WHERE site.RECORDTYPE_NAME__C = 'Site'
   AND site.Zip__c IN (
   ${zipString}
-  )${naicsWhere}${siteStatusWhere}${customerStatusWhere}${contactStatusWhere}${contactActivityWhere}
+  )${naicsWhere}${siteStatusWhere}${customerStatusWhere}${contactStatusWhere}${contactActivityWhere}`;
+
+        if (contactUniqueEmails) {
+            return `/* Contacts Export (Unique Emails Only) */
+WITH RankedContacts AS (
+${baseQuery.split('\n').map(l => '    ' + l).join('\n')}
+)
+SELECT 
+    Id,
+    FirstName,
+    LastName,
+    Email,
+    Phone,
+    Status__c,
+    LastActivityDate,
+    customer_account_id,
+    account_name,
+    account_cust_id,
+    naics_code
+FROM RankedContacts
+WHERE rn = 1
+ORDER BY
+    customer_account_id,
+    LastName,
+    FirstName;`;
+        }
+
+        return `/* Contacts Export */
+${baseQuery}
 ORDER BY
     cust.Id,
     c.LastName,

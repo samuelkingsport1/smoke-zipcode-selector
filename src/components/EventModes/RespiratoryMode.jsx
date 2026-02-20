@@ -18,7 +18,7 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
     // UI State
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState("Initializing Respiratory Mode...");
-    const [selectedState, setSelectedState] = useState(null); // Full State Name (e.g. 'Texas')
+    const [selectedStates, setSelectedStates] = useState(new Set()); // Set of State Names
     const [selectedTracker, setSelectedTracker] = useState('all'); // 'all', 'flu', 'covid', 'rsv'
 
     // Export Config
@@ -96,7 +96,7 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
         else if (level >= 4) color = '#ffc107'; // Moderate (Yellow)
         else if (level >= 1) color = '#20c997'; // Low (Green)
 
-        const isSelected = selectedState === stateName;
+        const isSelected = selectedStates.has(stateName);
 
         return {
             fillColor: color,
@@ -117,33 +117,46 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
         
         layer.on({
             click: () => {
-                setSelectedState(stateName);
-                setStatus(`Selected: ${stateName}`);
+                const newSelection = new Set(selectedStates);
+                if (newSelection.has(stateName)) {
+                    newSelection.delete(stateName);
+                } else {
+                    newSelection.add(stateName);
+                }
+                setSelectedStates(newSelection);
+                setStatus(`${newSelection.size} states selected.`);
             }
         });
     };
 
     // Export Logic
     const handleExport = (actionType) => {
-        if (!selectedState) {
-            alert("Please select a state on the map first.");
+        if (selectedStates.size === 0) {
+            alert("Please select at least one state on the map first.");
             return;
         }
 
-        const stateAbbr = US_STATES[selectedState]; // Get 'TX' from 'Texas'
-        if (!stateAbbr) {
+        const stateAbbrs = new Set();
+        selectedStates.forEach(name => {
+            if (US_STATES[name]) stateAbbrs.add(US_STATES[name]);
+        });
+
+        if (stateAbbrs.size === 0) {
             alert("State abbreviation mapping failed.");
             return;
         }
 
-        setStatus(`Exporting data for ${selectedState} (${stateAbbr})...`);
+        const selectionName = selectedStates.size === 1 ? Array.from(selectedStates)[0] : `${selectedStates.size} States`;
+        const fileNameBase = selectedStates.size === 1 ? US_STATES[Array.from(selectedStates)[0]] : 'multiple_states';
+
+        setStatus(`Exporting data for ${selectionName}...`);
 
         setTimeout(() => {
-            // Filter ZipCodes for this state
-            const targetZips = zipCodes.filter(z => z.state === stateAbbr);
+            // Filter ZipCodes for these states
+            const targetZips = zipCodes.filter(z => stateAbbrs.has(z.state));
             
             if (targetZips.length === 0) {
-                alert(`No zip codes found for ${selectedState} in database.`);
+                alert(`No zip codes found for ${selectionName} in database.`);
                 setStatus("Ready");
                 return;
             }
@@ -161,11 +174,11 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                  const url = URL.createObjectURL(blob);
                  const link = document.createElement('a');
                  link.href = url;
-                 link.setAttribute('download', `respiratory_targets_${stateAbbr}.sql`);
+                 link.setAttribute('download', `respiratory_targets_${fileNameBase}.sql`);
                  document.body.appendChild(link);
                  link.click();
                  document.body.removeChild(link);
-                 setStatus(`Exported SQL for ${stateAbbr}.`);
+                 setStatus(`Exported SQL for ${selectionName}.`);
              }
         }, 100);
     };
@@ -225,14 +238,14 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
 
                         <div className="sidebar-section">
                              <label className="sidebar-label">Export Controls</label>
-                             {!selectedState ? (
+                             {selectedStates.size === 0 ? (
                                  <div style={{ padding: '10px', background: '#fff3cd', fontSize: '12px', borderRadius: '4px' }}>
-                                     👆 Select a state on the map to enable export options.
+                                     👆 Select one or more states on the map to enable export options.
                                  </div>
                              ) : (
                                  <>
-                                    <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#0d6efd' }}>
-                                        Target: {selectedState}
+                                    <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#0d6efd', fontSize: '12px' }}>
+                                        Target: {selectedStates.size === 1 ? Array.from(selectedStates)[0] : `${selectedStates.size} States Selected`}
                                     </div>
                                     
                                     <SQLExportControls 
@@ -272,27 +285,29 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                 <div style={{ padding: '20px' }}>
                     <div style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
                         <h3>State Details</h3>
-                        {selectedState ? (
-                            <h2 style={{ margin: 0, color: '#0d6efd' }}>{selectedState}</h2>
-                        ) : (
+                        {selectedStates.size === 0 ? (
                             <p style={{ color: '#666' }}>Select a state...</p>
+                        ) : selectedStates.size === 1 ? (
+                            <h2 style={{ margin: 0, color: '#0d6efd' }}>{Array.from(selectedStates)[0]}</h2>
+                        ) : (
+                            <h2 style={{ margin: 0, color: '#20c997' }}>{selectedStates.size} States Selected</h2>
                         )}
                     </div>
 
-                    {selectedState && (
+                    {selectedStates.size === 1 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             
                             {/* FLU */}
                             <div style={{ padding: '10px', background: '#f8f9fa', borderRadius: '8px', borderLeft: '4px solid #20c997' }}>
                                 <strong style={{ display: 'block', marginBottom: '5px' }}>Flu Activity</strong>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{fluData[selectedState]?.level || 'N/A'}</span>
+                                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{fluData[Array.from(selectedStates)[0]]?.level || 'N/A'}</span>
                                     <span style={{ fontSize: '12px', color: '#666' }}>/ 10</span>
                                 </div>
-                                {fluData[selectedState]?.details && (
+                                {fluData[Array.from(selectedStates)[0]]?.details && (
                                     <div style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-                                        wILI: {fluData[selectedState].details.wili?.toFixed(2)}%<br/>
-                                        Updated: {fluData[selectedState].details.epiweek}
+                                        wILI: {fluData[Array.from(selectedStates)[0]].details.wili?.toFixed(2)}%<br/>
+                                        Updated: {fluData[Array.from(selectedStates)[0]].details.epiweek}
                                     </div>
                                 )}
                             </div>
@@ -301,13 +316,13 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                             <div style={{ padding: '10px', background: '#f8f9fa', borderRadius: '8px', borderLeft: '4px solid #0dcaf0' }}>
                                 <strong style={{ display: 'block', marginBottom: '5px' }}>COVID-19 Hosp.</strong>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{covidData[selectedState]?.level || 'N/A'}</span>
+                                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{covidData[Array.from(selectedStates)[0]]?.level || 'N/A'}</span>
                                     <span style={{ fontSize: '12px', color: '#666' }}>/ 10</span>
                                 </div>
-                                {covidData[selectedState]?.details && (
+                                {covidData[Array.from(selectedStates)[0]]?.details && (
                                     <div style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-                                        Adm/100k: {covidData[selectedState].details.val?.toFixed(1)}<br/>
-                                        Date: {covidData[selectedState].details.date.split('T')[0]}
+                                        Adm/100k: {covidData[Array.from(selectedStates)[0]].details.val?.toFixed(1)}<br/>
+                                        Date: {covidData[Array.from(selectedStates)[0]].details.date.split('T')[0]}
                                     </div>
                                 )}
                             </div>
@@ -316,17 +331,28 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                             <div style={{ padding: '10px', background: '#f8f9fa', borderRadius: '8px', borderLeft: '4px solid #fd7e14' }}>
                                 <strong style={{ display: 'block', marginBottom: '5px' }}>RSV ED Visits</strong>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{rsvData[selectedState]?.level || 'N/A'}</span>
+                                    <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{rsvData[Array.from(selectedStates)[0]]?.level || 'N/A'}</span>
                                     <span style={{ fontSize: '12px', color: '#666' }}>/ 10</span>
                                 </div>
-                                {rsvData[selectedState]?.details && (
+                                {rsvData[Array.from(selectedStates)[0]]?.details && (
                                     <div style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-                                        % Visits: {rsvData[selectedState].details.percent_visits?.toFixed(1)}%<br/>
-                                        Date: {rsvData[selectedState].details.week_end.split('T')[0]}
+                                        % Visits: {rsvData[Array.from(selectedStates)[0]].details.percent_visits?.toFixed(1)}%<br/>
+                                        Date: {rsvData[Array.from(selectedStates)[0]].details.week_end.split('T')[0]}
                                     </div>
                                 )}
                             </div>
 
+                        </div>
+                    )}
+
+                    {selectedStates.size > 1 && (
+                        <div style={{ padding: '15px', background: '#f8f9fa', borderRadius: '8px', fontSize: '13px', color: '#555' }}>
+                            <p style={{ margin: '0 0 10px 0' }}>Metrics are combined across <strong>{selectedStates.size}</strong> selected states.</p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                {Array.from(selectedStates).map(s => (
+                                    <span key={s} style={{ background: '#e9ecef', padding: '3px 8px', borderRadius: '12px', fontSize: '11px' }}>{s}</span>
+                                ))}
+                            </div>
                         </div>
                     )}
 
