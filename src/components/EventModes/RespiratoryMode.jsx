@@ -329,6 +329,62 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
 
                         </div>
                     )}
+
+                    {/* Cadence Email Template */}
+                    <div style={{ 
+                        marginTop: '20px',
+                        padding: '16px', 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '8px', 
+                        border: '1px solid #e9ecef',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                    }}>
+                        <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#0d6efd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>✉️</span> Sample Cadence Email
+                        </h4>
+                        <div style={{ fontSize: '12px', color: '#495057', lineHeight: '1.5' }}>
+                            <p style={{ margin: '0 0 8px 0' }}><strong>Subject Line:</strong> Helping Your Workplace Navigate This Flu Season</p>
+                            <p style={{ margin: '0 0 8px 0' }}>Hi {'{{FirstName}}'},</p>
+                            <p style={{ margin: '0 0 8px 0' }}>I hope you and your team are doing well. With higher flu activity being reported in your area, many of our customers are taking simple steps to support employee wellness and keep their workplaces running smoothly.</p>
+                            <p style={{ margin: '0 0 8px 0' }}>Here are a few ODP Business Solutions items that organizations in your region are finding especially useful:</p>
+                            <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>
+                                <li style={{ marginBottom: '4px' }}><strong>Hand Sanitizer & Dispensers</strong> – For entrances, conference rooms, and common areas to encourage frequent hand hygiene.</li>
+                                <li style={{ marginBottom: '4px' }}><strong>Disinfecting Wipes & Sprays</strong> – For regularly touched surfaces like desks, door handles, phones, and shared equipment.</li>
+                                <li style={{ marginBottom: '4px' }}><strong>Facial Tissues & Trash Liners</strong> – To help maintain a cleaner, more comfortable environment in offices and break areas.</li>
+                                <li style={{ marginBottom: '4px' }}><strong>PPE & Wellness Essentials</strong> – Masks, thermometers, and other wellness items to support your onsite team.</li>
+                            </ul>
+                            <p style={{ margin: '0 0 12px 0' }}>If you’d like, I can pull together a tailored list of recommended products and pricing based on your locations and headcount.</p>
+                            <p style={{ margin: 0 }}>Best regards,<br/>
+                            {'{{YourName}}'}<br/>
+                            {'{{YourTitle}}'}<br/>
+                            <strong>ODP Business Solutions</strong><br/>
+                            {'{{YourEmail}} | {{YourPhone}}'}</p>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                const text = `Subject Line: Helping Your Workplace Navigate This Flu Season\n\nHi {{FirstName}},\n\nI hope you and your team are doing well. With higher flu activity being reported in your area, many of our customers are taking simple steps to support employee wellness and keep their workplaces running smoothly.\n\nHere are a few ODP Business Solutions items that organizations in your region are finding especially useful:\n• Hand Sanitizer & Dispensers – For entrances, conference rooms, and common areas to encourage frequent hand hygiene.\n• Disinfecting Wipes & Sprays – For regularly touched surfaces like desks, door handles, phones, and shared equipment.\n• Facial Tissues & Trash Liners – To help maintain a cleaner, more comfortable environment in offices and break areas.\n• PPE & Wellness Essentials – Masks, thermometers, and other wellness items to support your onsite team.\n\nIf you’d like, I can pull together a tailored list of recommended products and pricing based on your locations and headcount.\n\nBest regards,\n{{YourName}}\n{{YourTitle}}\nODP Business Solutions\n{{YourEmail}} | {{YourPhone}}`;
+                                navigator.clipboard.writeText(text);
+                                alert('Email template copied to clipboard!');
+                            }}
+                            style={{
+                                marginTop: '12px',
+                                width: '100%',
+                                padding: '8px',
+                                backgroundColor: '#fff',
+                                border: '1px solid #0d6efd',
+                                color: '#0d6efd',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                transition: 'background 0.2s'
+                            }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#f1f7ff'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = '#fff'}
+                        >
+                            📋 Copy Template
+                        </button>
+                    </div>
                 </div>
             }
         />
