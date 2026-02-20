@@ -15,6 +15,28 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
     const [apiSources, setApiSources] = useState({ flu: null, covid: null, rsv: null });
     const [usGeoJSON, setUsGeoJSON] = useState(null);
     
+    // Helper to format YYYYWW into a human readable date
+    const formatEpiweek = (epiweek) => {
+        if (!epiweek) return "Unknown";
+        const str = String(epiweek);
+        if (str.length !== 6) return str;
+        
+        const year = parseInt(str.substring(0, 4), 10);
+        const week = parseInt(str.substring(4, 6), 10);
+        
+        // Epiweek 1 always contains Jan 4th.
+        const jan4 = new Date(year, 0, 4);
+        // Find Sunday of week 1
+        const startOfWeek1 = new Date(jan4);
+        startOfWeek1.setDate(jan4.getDate() - jan4.getDay());
+        
+        // Add elapsed weeks
+        const targetWeekStart = new Date(startOfWeek1);
+        targetWeekStart.setDate(startOfWeek1.getDate() + ((week - 1) * 7));
+        
+        return `Week of ${targetWeekStart.toLocaleDateString()}`;
+    };
+    
     // UI State
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState("Initializing Respiratory Mode...");
@@ -384,7 +406,7 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                                 {fluData[Array.from(selectedStates)[0]]?.details && (
                                     <div style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
                                         wILI: {fluData[Array.from(selectedStates)[0]].details.wili?.toFixed(2)}%<br/>
-                                        Updated: {fluData[Array.from(selectedStates)[0]].details.epiweek}
+                                        Updated: {formatEpiweek(fluData[Array.from(selectedStates)[0]].details.epiweek)}
                                     </div>
                                 )}
                             </div>
@@ -401,7 +423,7 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '11px' }}>
                                     <li style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <a href={apiSources.flu} target="_blank" rel="noreferrer" style={{ color: '#0d6efd', textDecoration: 'none' }}>🤧 Flu (Delphi API) ↗</a>
-                                        <span style={{ color: '#6c757d' }}>{fluData[Array.from(selectedStates)[0]]?.details ? `Updated: ${fluData[Array.from(selectedStates)[0]].details.epiweek}` : 'No Data'}</span>
+                                        <span style={{ color: '#6c757d' }}>{fluData[Array.from(selectedStates)[0]]?.details ? `Updated: ${formatEpiweek(fluData[Array.from(selectedStates)[0]].details.epiweek)}` : 'No Data'}</span>
                                     </li>
                                 </ul>
                             </div>
