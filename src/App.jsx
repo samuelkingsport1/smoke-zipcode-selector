@@ -13,7 +13,7 @@ console.log("!!! APP.JSX MODULE LOADED !!!");
 
 const App = () => {
   // Simple version logging
-  const APP_VERSION = "v1.4.1 - 2026-02-19 (Heat Mode Winter Placeholder)";
+  const APP_VERSION = "v1.4.2 - 2026-02-20 (Heat Mode Live)";
   console.log(`%c ODP Sales Utility ${APP_VERSION}`, 'background: #222; color: #bada55; font-size: 14px; padding: 4px; border-radius: 4px;');
 
   const [activeTab, setActiveTab] = useState('smoke');
@@ -60,8 +60,7 @@ const App = () => {
       case 'winter':
         return <WinterMode zipCodes={zipCodes} zipLoading={zipLoading} />;
       case 'heat':
-        // return <HeatMode zipCodes={zipCodes} zipLoading={zipLoading} />;
-        return <PlaceholderMode title="Heat Mode (Coming Soon - Summer)" />;
+        return <HeatMode zipCodes={zipCodes} zipLoading={zipLoading} />;
       case 'flood':
         return <FloodMode zipCodes={zipCodes} zipLoading={zipLoading} />;
       case 'flu': 
