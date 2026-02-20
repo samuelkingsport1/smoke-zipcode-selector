@@ -278,7 +278,7 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
 
                 const countSql = `Select count(s.id)
 From SFDC_DS.SFDC_ACCOUNT_OBJECT s
-${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
+${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
 Where s.RECORDTYPE_NAME__C = '${recordType}'
 AND s.Zip__c IN (${zipString})${
     selectedNAICS.size > 0 
@@ -313,7 +313,7 @@ AND s.Zip__c IN (${zipString})${
                 
                 const sqlContent = `Select ${allFields.map(f => `s.${f}`).join(", ")}${naicsFields}
 From SFDC_DS.SFDC_ACCOUNT_OBJECT s
-${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
+${(selectedNAICS.size > 0 || filters.activeStatus || filters.lastActivityMonths || filters.lastOrderMonths || filters.minTotalSales) ? "LEFT JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id\nLEFT JOIN SFDC_DS.SFDC_ORG_OBJECT org ON c.Org__c = org.Id" : ""}
 Where s.RECORDTYPE_NAME__C = '${recordType}'
 AND s.Zip__c IN (${zipString})${
     selectedNAICS.size > 0 

@@ -124,7 +124,7 @@ const SystemDocumentation = () => {
   s.Id, 
   s.Name, 
   s.Zip__c, 
-  s.ParentId 
+  s.Related_Account__c 
 FROM SFDC_DS.SFDC_ACCOUNT_OBJECT s
 WHERE 
   s.Zip__c IN ('YOUR_ZIP_LIST_HERE') 
@@ -156,7 +156,7 @@ WHERE
   c.Id as Customer_Id,
   c.Total_Sales_LY__c
 FROM SFDC_DS.SFDC_ACCOUNT_OBJECT s
-JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.ParentId = c.Id
+JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT c ON s.Related_Account__c = c.Id
 WHERE 
   s.Zip__c IN ('YOUR_ZIP_LIST_HERE') 
   AND c.Status__c = 'Active'

@@ -1,39 +1,8 @@
 import React from 'react';
 import Papa from 'papaparse';
+import dataDiagram from '../../assets/data_diagram.svg';
 
-const FIELD_SCHEMA = [
-    // SITE OBJECT
-    { object: 'Site', alias: 'Site', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'id', label: 'Record ID', type: 'String', key: true, description: 'Unique Record ID' },
-    { object: 'Site', alias: 'Site', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'Name', label: 'Account Name', type: 'String', key: false, description: 'Display Name' },
-    { object: 'Site', alias: 'Site', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'Zip__c', label: 'Zip Code', type: 'String', key: true, description: '5-digit Zip Code (Geographic Link)' },
-    { object: 'Site', alias: 'Site', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'ParentId', label: 'Parent ID', type: 'String', key: true, description: 'Parent Account ID (Join Key)' },
-    { object: 'Site', alias: 'Site', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'RECORDTYPE_NAME__C', label: 'Record Type', type: 'String', key: false, description: "Filter Value (e.g., 'Site', 'Customer')" },
-    { object: 'Site', alias: 'Site', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'Last_Order_Date__C', label: 'Last Order Date', type: 'Date', key: false, description: 'Sales Metric (Optional Display)' },
-    { object: 'Site', alias: 'Site', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'Total_LY_Sales__C', label: 'Total LY Sales', type: 'Currency', key: false, description: 'Sales Metric (Optional Display)' },
-    
-    // PARENT OBJECT
-    { object: 'Customer', alias: 'Customer', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'Id', label: 'Record ID', type: 'String', key: true, description: 'Unique Record ID (Join Target)' },
-    { object: 'Customer', alias: 'Customer', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'Status__c', label: 'Status', type: 'String', key: false, description: "Account Status (e.g., 'Active')" },
-    { object: 'Customer', alias: 'Customer', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'Org__c', label: 'Org ID', type: 'String', key: true, description: 'Organization ID (Join Key to NAICS)' },
-    { object: 'Customer', alias: 'Customer', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'LastActivityDate', label: 'Last Activity', type: 'Date', key: false, description: 'Activity Metric' },
-    { object: 'Customer', alias: 'Customer', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'LastOrderDate__c', label: 'Last Order Date', type: 'Date', key: false, description: 'Sales Metric' },
-    { object: 'Customer', alias: 'Customer', snowflakeTable: 'SFDC_DS.SFDC_ACCOUNT_OBJECT', apiName: 'Total_Sales_LY__c', label: 'Total LY Sales', type: 'Currency', key: false, description: 'Annual Sales' },
-
-    // ORG OBJECT
-    { object: 'Org', alias: 'Org', snowflakeTable: 'SFDC_DS.SFDC_ORG_OBJECT', apiName: 'Id', label: 'Record ID', type: 'String', key: true, description: 'Unique Record ID (Join Target)' },
-    { object: 'Org', alias: 'Org', snowflakeTable: 'SFDC_DS.SFDC_ORG_OBJECT', apiName: 'NAICS___c', label: 'NAICS Code', type: 'String', key: false, description: 'Industry Code' },
-    { object: 'Org', alias: 'Org', snowflakeTable: 'SFDC_DS.SFDC_ORG_OBJECT', apiName: 'NAICS_Description__c', label: 'Industry Name', type: 'String', key: false, description: 'Industry Description' },
-
-    // SALES DATA OBJECT
-    { object: 'Sales Data', alias: 'Sales', snowflakeTable: 'SFDC_DS.SFDC_SALES_DATA_OBJECT', apiName: 'Id', label: 'Record ID', type: 'String', key: true, description: 'Unique Record ID' },
-    { object: 'Sales Data', alias: 'Sales', snowflakeTable: 'SFDC_DS.SFDC_SALES_DATA_OBJECT', apiName: 'Account__c', label: 'Account ID', type: 'String', key: true, description: 'Foreign Key (Joins to Site/Customer)' },
-
-    // CONTACT OBJECT
-    { object: 'Contact', alias: 'Contact', snowflakeTable: 'SFDC_DS.SFDC_CONTACT_OBJECT', apiName: 'Id', label: 'Record ID', type: 'String', key: true, description: 'Unique Record ID' },
-    { object: 'Contact', alias: 'Contact', snowflakeTable: 'SFDC_DS.SFDC_CONTACT_OBJECT', apiName: 'AccountId', label: 'Account ID', type: 'String', key: true, description: 'Foreign Key (Joins to Site/Customer)' },
-    { object: 'Contact', alias: 'Contact', snowflakeTable: 'SFDC_DS.SFDC_CONTACT_OBJECT', apiName: 'Status__c', label: 'Status', type: 'String', key: false, description: "Contact Status (e.g., 'Active', 'No Longer There')" },
-    { object: 'Contact', alias: 'Contact', snowflakeTable: 'SFDC_DS.SFDC_CONTACT_OBJECT', apiName: 'LastActivityDate', label: 'Last Activity', type: 'Date', key: false, description: 'Last Interaction Date' }
-];
+import { FIELD_SCHEMA } from './FieldSchema';
 
 const DataDictionary = () => {
 
@@ -71,6 +40,10 @@ const DataDictionary = () => {
             
             <p>Summary of objects, fields, and logic used in the SQL Export tool.</p>
             
+            <div style={{ textAlign: 'center', margin: '30px 0' }}>
+                <img src={dataDiagram} alt="Entity Relationship Diagram" style={{ maxWidth: '100%', height: 'auto', border: '1px solid #eee', borderRadius: '8px', padding: '10px', backgroundColor: '#fafafa' }} />
+            </div>
+
             <hr />
 
             <h3>1. Object Schema</h3>

@@ -1,0 +1,39 @@
+erDiagram
+    ACCOUNT_SITE {
+        id Id
+        id Related_Account__c  "Lookup to ACCOUNT_CUSTOMER.Id"
+        string RecordType      "Site"
+    }
+
+    ACCOUNT_CUSTOMER {
+        id Id
+        id Org__c              "Lookup to ORG.Id"
+        id Sales_Data__c       "Lookup to SALES_DATA.Id"
+        string RecordType      "Customer"
+    }
+
+    CONTACT {
+        id Id
+        id AccountId           "Lookup to ACCOUNT_CUSTOMER.Id"
+    }
+
+    ORG {
+        id Id
+    }
+
+    SALES_DATA {
+        id Id
+        string SFDC_ID
+    }
+
+    %% Site -> Customer (custom lookup)
+    ACCOUNT_CUSTOMER ||--o{ ACCOUNT_SITE : "Site.Related_Account__c -> Customer.Id"
+
+    %% Contact -> Customer (standard lookup)
+    ACCOUNT_CUSTOMER ||--o{ CONTACT : "Contact.AccountId -> Customer.Id"
+
+    %% Customer -> Org
+    ORG ||--o{ ACCOUNT_CUSTOMER : "Customer.Org__c -> Org.Id"
+
+    %% Customer -> Sales Data
+    SALES_DATA ||--|| ACCOUNT_CUSTOMER : "Customer.Sales_Data__c -> Sales_Data.Id"
