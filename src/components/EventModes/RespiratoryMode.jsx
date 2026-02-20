@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Papa from 'papaparse';
 import { GeoJSON } from 'react-leaflet';
 import MapComponent from '../MapContainer';
 import DashboardLayout from '../Dashboard/DashboardLayout';
@@ -123,14 +124,16 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
         
         layer.on({
             click: () => {
-                const newSelection = new Set(selectedStates);
-                if (newSelection.has(stateName)) {
-                    newSelection.delete(stateName);
-                } else {
-                    newSelection.add(stateName);
-                }
-                setSelectedStates(newSelection);
-                setStatus(`${newSelection.size} states selected.`);
+                setSelectedStates(prev => {
+                    const newSelection = new Set(prev);
+                    if (newSelection.has(stateName)) {
+                        newSelection.delete(stateName);
+                    } else {
+                        newSelection.add(stateName);
+                    }
+                    setTimeout(() => setStatus(`${newSelection.size} states selected.`), 10);
+                    return newSelection;
+                });
             }
         });
     };
@@ -189,6 +192,52 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
         }, 100);
     };
 
+    const handleCSVExport = () => {
+        if (selectedStates.size === 0) {
+            alert("Please select at least one state on the map first.");
+            return;
+        }
+
+        const stateAbbrs = new Set();
+        selectedStates.forEach(name => {
+            if (US_STATES[name]) stateAbbrs.add(US_STATES[name]);
+        });
+
+        if (stateAbbrs.size === 0) return;
+
+        setStatus("Exporting CSV...");
+        
+        setTimeout(() => {
+            const targetZips = zipCodes.filter(z => stateAbbrs.has(z.state));
+            
+            if (targetZips.length === 0) {
+                alert("No zip codes found for selection.");
+                setStatus("Ready");
+                return;
+            }
+
+            const csvData = targetZips.map(z => ({
+                ZIP: z.zip,
+                CITY: z.city,
+                STATE: z.state,
+                LAT: z.lat,
+                LNG: z.lng
+            }));
+            
+            const csv = Papa.unparse(csvData);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'respiratory_zipcodes.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setStatus(`Exported ${targetZips.length} zipcodes.`);
+        }, 100);
+    };
+
     return (
         <DashboardLayout
             leftPanel={
@@ -243,7 +292,9 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                         </div>
 
                         <div className="sidebar-section">
-                             <label className="sidebar-label">Export Controls</label>
+                             <label className="sidebar-label" style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                                 EXPORT DATA
+                             </label>
                              {selectedStates.size === 0 ? (
                                  <div style={{ padding: '10px', background: '#fff3cd', fontSize: '12px', borderRadius: '4px' }}>
                                      👆 Select one or more states on the map to enable export options.
@@ -254,18 +305,49 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                                         Target: {selectedStates.size === 1 ? Array.from(selectedStates)[0] : `${selectedStates.size} States Selected`}
                                     </div>
                                     
-                                    <SQLExportControls 
-                                        config={exportConfig}
-                                        setConfig={setExportConfig}
-                                        selectedNAICS={selectedNAICS}
-                                        setSelectedNAICS={setSelectedNAICS}
-                                    />
-                                    
-                                    <ExportActionButtons 
-                                        onExport={handleExport}
-                                        loading={loading}
-                                        zipLoading={zipLoading}
-                                    />
+                                    {/* CSV Export */}
+                                    <div style={{ marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                                        <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#555', marginBottom: '8px' }}>
+                                            1. Export Zip Code List (CSV)
+                                        </div>
+                                        <button
+                                            className="export-btn"
+                                            onClick={handleCSVExport}
+                                            disabled={loading || zipLoading}
+                                            style={{ 
+                                                width: '100%', 
+                                                padding: '10px',
+                                                backgroundColor: '#28a745', 
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontWeight: '500'
+                                            }}
+                                        >
+                                            {zipLoading ? 'Loading DB...' : (loading ? 'Processing...' : 'Download CSV of Zip Codes')}
+                                        </button>
+                                    </div>
+
+                                    {/* SQL Export */}
+                                    <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                                        <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#555', marginBottom: '8px' }}>
+                                            2. Generate SQL Query
+                                        </div>
+                                        <SQLExportControls 
+                                            config={exportConfig}
+                                            setConfig={setExportConfig}
+                                            selectedNAICS={selectedNAICS}
+                                            setSelectedNAICS={setSelectedNAICS}
+                                        />
+                                        <div style={{ marginTop: '10px' }}>
+                                            <ExportActionButtons 
+                                                onExport={handleExport}
+                                                loading={loading}
+                                                zipLoading={zipLoading}
+                                            />
+                                        </div>
+                                    </div>
                                  </>
                              )}
                         </div>
@@ -280,6 +362,7 @@ const RespiratoryMode = ({ zipCodes = [], zipLoading = false }) => {
                 <MapComponent>
                     {usGeoJSON && (
                         <GeoJSON 
+                            key={`states-${Array.from(selectedStates).join(',')}-${selectedTracker}`}
                             data={usGeoJSON} 
                             style={styleState} 
                             onEachFeature={onEachState} 

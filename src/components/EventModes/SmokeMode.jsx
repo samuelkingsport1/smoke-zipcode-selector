@@ -377,7 +377,7 @@ const SmokeMode = ({ zipCodes = [], zipLoading = false }) => {
                                         fontWeight: '500'
                                     }}
                                 >
-                                    {zipLoading ? 'Loading DB...' : (loading ? 'Processing...' : 'Download CSV')}
+                                    {zipLoading ? 'Loading DB...' : (loading ? 'Processing...' : 'Download CSV of Zip Codes')}
                                 </button>
                             </div>
 

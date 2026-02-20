@@ -444,23 +444,54 @@ const WinterMode = ({ zipCodes = [], zipLoading = false }) => {
                             </button>
                         </div>
                         
-                        <div className="sidebar-input-group">
-                            <label className="sidebar-label">Export Data</label>
-                            <div style={{ marginTop: '10px' }}>
+                        <div className="sidebar-section">
+                            <label className="sidebar-label" style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                                EXPORT DATA
+                            </label>
+                            
+                            {/* CSV Export */}
+                            <div style={{ marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#555', marginBottom: '8px' }}>
+                                    1. Export Zip Code List (CSV)
+                                </div>
+                                <button
+                                    className="export-btn"
+                                    onClick={() => handleExport('DOWNLOAD')}
+                                    disabled={loading || zipLoading}
+                                    style={{ 
+                                        width: '100%', 
+                                        padding: '10px',
+                                        backgroundColor: '#28a745', 
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    {zipLoading ? 'Loading DB...' : (loading ? 'Processing...' : 'Download CSV of Zip Codes')}
+                                </button>
+                            </div>
+
+                            {/* SQL Export */}
+                            <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#555', marginBottom: '8px' }}>
+                                    2. Generate SQL Query
+                                </div>
                                 <SQLExportControls 
                                     config={exportConfig}
                                     setConfig={setExportConfig}
                                     selectedNAICS={selectedNAICS}
                                     setSelectedNAICS={setSelectedNAICS}
                                 />
+                                <div style={{ marginTop: '10px' }}>
+                                    <ExportActionButtons 
+                                        onExport={handleSQLExport}
+                                        loading={loading}
+                                        zipLoading={zipLoading}
+                                    />
+                                </div>
                             </div>
-
-                            <ExportActionButtons 
-                                onExport={handleSQLExport}
-                                loading={loading}
-                                zipLoading={zipLoading}
-                            />
-                            
                         </div>
                         
                         <div style={{ padding: '10px', fontSize: '11px', color: '#999', borderTop: '1px solid #eee' }}>
