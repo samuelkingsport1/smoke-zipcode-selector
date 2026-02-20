@@ -52,9 +52,6 @@ SELECT DISTINCT
     c.LastActivityDate,
 
     cust.Id              AS customer_account_id,
-    site.Id              AS site_account_id,
-    site.Zip__c          AS site_zip,
-
     o.NAICS_2017_CODE__C AS naics_code
 FROM SFDC_DS.SFDC_ACCOUNT_OBJECT site
 JOIN SFDC_DS.SFDC_ACCOUNT_OBJECT cust
