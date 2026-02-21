@@ -5,6 +5,7 @@ import WinterMode from './components/EventModes/WinterMode';
 import HeatMode from './components/EventModes/HeatMode';
 import FloodMode from './components/EventModes/FloodMode';
 import RespiratoryMode from './components/EventModes/RespiratoryMode';
+import RadiusMode from './components/EventModes/RadiusMode';
 import TechnicalMode from './components/EventModes/TechnicalMode';
 import PlaceholderMode from './components/EventModes/PlaceholderMode';
 import Papa from 'papaparse';
@@ -13,7 +14,7 @@ console.log("!!! APP.JSX MODULE LOADED !!!");
 
 const App = () => {
   // Simple version logging
-  const APP_VERSION = "v1.4.4 - 2026-02-20 (Heat Mode Modal)";
+  const APP_VERSION = "v1.5.0 - 2026-02-20 (Radius Mode Addition)";
   console.log(`%c ODP Sales Utility ${APP_VERSION}`, 'background: #222; color: #bada55; font-size: 14px; padding: 4px; border-radius: 4px;');
 
   const [activeTab, setActiveTab] = useState('smoke');
@@ -65,7 +66,8 @@ const App = () => {
         return <FloodMode zipCodes={zipCodes} zipLoading={zipLoading} />;
       case 'flu': 
         return <RespiratoryMode zipCodes={zipCodes} zipLoading={zipLoading} />;
-        // return <PlaceholderMode title="Respiratory Mode (Maintenance)" />;
+      case 'radius':
+        return <RadiusMode zipCodes={zipCodes} zipLoading={zipLoading} />;
       case 'technical':
         return <TechnicalMode />;
       default:

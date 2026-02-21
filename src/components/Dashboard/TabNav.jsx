@@ -6,6 +6,7 @@ const tabs = [
     { id: 'heat', label: '☀️ Heatwave', color: '#FF4500' },
     { id: 'flood', label: '🌊 Flood / Hurricane', color: '#0000FF' },
     { id: 'flu', label: '🦠 Respiratory Illness', color: '#32CD32' },
+    { id: 'radius', label: '📍 Radius Select', color: '#1fa2ff' },
     { id: 'technical', label: '🛠️ Tech / Architecture', color: '#6610f2' },
 ];
 
