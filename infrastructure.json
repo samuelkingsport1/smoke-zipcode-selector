@@ -1,0 +1,31 @@
+{
+  "distributionCenters": [
+    {"siteId": "1214", "city": "Buford", "state": "GA", "lat": 34.1207, "lon": -84.0043, "capacityScore": 8, "radius": null},
+    {"siteId": "1301", "city": "Forest Park", "state": "GA", "lat": 33.6221, "lon": -84.369, "capacityScore": 7, "radius": null},
+    {"siteId": "2105", "city": "Itasca", "state": "IL", "lat": 41.9753, "lon": -88.0073, "capacityScore": 9, "radius": null},
+    {"siteId": "3042", "city": "Cranbury", "state": "NJ", "lat": 40.3162, "lon": -74.5135, "capacityScore": 8, "radius": null},
+    {"siteId": "4010", "city": "Dallas", "state": "TX", "lat": 32.7767, "lon": -96.797, "capacityScore": 9, "radius": null},
+    {"siteId": "4025", "city": "Houston", "state": "TX", "lat": 29.7604, "lon": -95.3698, "capacityScore": 7, "radius": null},
+    {"siteId": "5001", "city": "City of Industry", "state": "CA", "lat": 33.9537, "lon": -117.9293, "capacityScore": 8, "radius": null},
+    {"siteId": "5015", "city": "Sacramento", "state": "CA", "lat": 38.5816, "lon": -121.4944, "capacityScore": 6, "radius": null},
+    {"siteId": "6002", "city": "Lenexa", "state": "KS", "lat": 38.9536, "lon": -94.7336, "capacityScore": 7, "radius": null},
+    {"siteId": "6010", "city": "Columbus", "state": "OH", "lat": 39.9612, "lon": -82.9988, "capacityScore": 7, "radius": null},
+    {"siteId": "7001", "city": "Lakeland", "state": "FL", "lat": 28.0395, "lon": -81.9498, "capacityScore": 6, "radius": null},
+    {"siteId": "7015", "city": "Charlotte", "state": "NC", "lat": 35.2271, "lon": -80.8431, "capacityScore": 7, "radius": null},
+    {"siteId": "8001", "city": "Denver", "state": "CO", "lat": 39.7392, "lon": -104.9903, "capacityScore": 6, "radius": null},
+    {"siteId": "8010", "city": "Salt Lake City", "state": "UT", "lat": 40.7608, "lon": -111.891, "capacityScore": 5, "radius": null},
+    {"siteId": "9001", "city": "Kent", "state": "WA", "lat": 47.3809, "lon": -122.2348, "capacityScore": 7, "radius": null}
+  ],
+  "federationLocations": [
+    {"companyName": "Complete Office", "city": "Tukwila", "state": "WA", "lat": 47.4740, "lon": -122.2610, "radius": null},
+    {"companyName": "S&T Office Products", "city": "Urbandale", "state": "IA", "lat": 41.6266, "lon": -93.7122, "radius": null},
+    {"companyName": "Guernsey Office Products", "city": "Dulles", "state": "VA", "lat": 38.9531, "lon": -77.4565, "radius": null},
+    {"companyName": "Warehouse Direct", "city": "Naperville", "state": "IL", "lat": 41.7508, "lon": -88.1535, "radius": null},
+    {"companyName": "Clover Imaging Group", "city": "East Windsor", "state": "NJ", "lat": 40.2591, "lon": -74.5379, "radius": null},
+    {"companyName": "Impact Office Products", "city": "Suwanee", "state": "GA", "lat": 34.0515, "lon": -84.0713, "radius": null},
+    {"companyName": "Frey Group", "city": "Plymouth", "state": "MN", "lat": 45.0105, "lon": -93.4555, "radius": null},
+    {"companyName": "Perry Office Plus", "city": "Temple", "state": "TX", "lat": 31.0982, "lon": -97.3428, "radius": null},
+    {"companyName": "Nation's Best Sports", "city": "Charlotte", "state": "NC", "lat": 35.2271, "lon": -80.8431, "radius": null},
+    {"companyName": "Storey Kenworthy", "city": "Des Moines", "state": "IA", "lat": 41.5868, "lon": -93.625, "radius": null}
+  ]
+}
